@@ -1,0 +1,136 @@
+---
+title: How would an historian do time-series econometrics? Analogy weighting using
+  machine learning
+author: "Jim Savage"
+date: "7 July 2015"
+output: html_document
+---
+
+# Summary
+
+Time-varying parameter models are commonly used in applied macroeconomics as a means of capturing unmodelled structural changes in the macroeconomy. There are three commonly used methods of generating time-variation in parameter estimates. The first is what I term an "unprincpled" approach, which includes adjusting the amount of history included in the training set, either explicitly or by weighting. A second, more principled approach is Markov switching, where an economy may flip between states, each associated with a set of parameters. Another principled approach preferred by most practitioners is to model the paremeters directly as an unobserved state that is allowed to vary over time. 
+
+This paper presents a "semi-principled approach", a weighting methodology in which parameters are informed to a greater degree by time-periods similar a period chosen by the analyst---normally the last period. In doing so, the method captures the simplicity of a weighting approach, but one in which parameters from similar states of the world have similar values. Because there are far fewer parameters to estimate, it does not suffer from the overparameterisation issues associated with proper time-varying parameter model, and so is less reliant on the selection of priors. 
+
+The method has an important biproduct: in periods without historical precedent, the method provides very low weights on historical observations; coupled with Bayesian techniques, extremely wide priors can take over.  There is little value in giving undue weight to irrelevant histories. 
+
+The method is novel in that it uses the Random Forest, a tool from machine learning, in order to generate the weighting vector. This tool is extremely popular in applied classification and prediction tasks, though has not been widely applied to inferential econometrics. This paper is an attempt to bridge the gap.
+
+# Introduction
+
+In building empirical macroeconomic models for policy simulation and forecasting *today*, how much history should be included? Too much history and the analyst risks estimating parameters that describe history well but have little relevance to today. With too little history, estimates risk missing out on useful information. Implicit in doing time-series work is an assumption that history provides a useful guide for parameterising models. 
+
+The method presented in this paper takes this one step further: I assert that if history provides a useful guide, then more analogous histories should provide a better guide. Conversely, we should have a great deal of uncertainty in model projections being made if the current state of the world is markedly different from the world from which the model parameters were estimated. 
+
+How should we decide which histories are most relevant to today? A naive approach is to assume that co-movements between variables over the recent history are likely to emerge from a structural relationship that is relevant for the near future. Making such an assumption motivates techniques often used in industry and government work[cite: BASEL III], such as estimating models over a rolling window, or using exponential smoothing to give less weight to more distant historial observations. 
+
+Another approach, one implicitly favoured by historians, is to analogise today with periods of history that have similar characteristics, and draw inference based on those analogies. There is a large problem in applying this *historian's* approach formally to time-series models: how can we determine which time-periods are "similar" to today? Estimating similarity typically involves selecting a metric with which we can measure distance between periods. But how much weight should be given to the various dimensions? And should these weights change over time? Perhaps one variable is very important in some states of the world and not in others.
+
+This paper describes an algorithm to estimate "analogy weights", which can then be used to help regression models learn more from similar periods of history. These weights have two important features. First, they are metric-free; a variable's importance to the weight can vary with states of the world. Second, there are automated out-of-sample robustness checks in the construction of the weights, and so weights represent only similarities on dimensions that appear to have a robust relationship to the dependent variable. When used in a Bayesian framework with wide priors on residual variances, this algorithm can help increase uncertainty when the model is being asked to generate projections in a world that is not similar to the world used to estimate the model. The algorithm also requires very few tuning parameters, making it a useful turn-key solution to many time-series modelling tasks. 
+
+The paper presents two applations of the algorithm. The first applies the technique to the estimation of the permanent component of inflation. This illustrates the method's ability to generate time-varying parameters and forecasts that perform very well relative to competing methods. The second application generates Value-at-Risk estimates for a small portfolio of liquid stocks, illustrating the methodology's suitability to portfolio risk management.
+
+
+# Introducing Random Forests
+
+The algorithm described below uses the proximity matrix of a random forest. This chapter describes how the Random Forest works, starting by explaining the Classification and Regression Tree method, and then describes how the proximity matrix is estimated. Readers with a familiarity with these methods may skip to the next chapter. 
+
+# CART
+
+Classification and Regression Trees, known as CART and due to Brieman et al (1984), is a non-linear supervised recursive partitioning method. The aim of the technique is to partition a dataset according to the values of its covariates such that in each of the sub-groups the values of the dependent variable are more similar than in the parent group. The routine described below is a simplified version of the CART routine implemented in many software packages, though one that is much closer to the trees that make up a Random Forest. 
+
+Formally, let $x_{i,p}$ be the $p\in P$-th covariate for individual $i\in I$. Although in some implementations of CART $x$ can be a categorical variable, we consider only the case with a numerical $x$. The collection of all $x$s is $X$. Each individual has a dependent variable $y_{i}\in Y$, which again we take to be numerical.
+
+Each node of the tree---a juncture between branches---is associated with a "split-point" $\bar{x_{p}}$ defined as the point that splits the parent group into two child groups so that the sum of sum of squares for the child groups is reduced by as much as possible:
+
+\[
+\bar{x_{p}} = \mbox{argmax}_{x_{p}} \left\{\sum_{i\in I} (y_{i} - \bar{y})^{2} - \left(\sum_{i\in I_{L}} (y_{i} - \bar{y_{L}})^{2} + \sum_{i\in I_{R}} (y_{i} - \bar{y_{R}})^{2}\right)\right\}
+\]
+
+Where $I_{L}$ is the "left" part of the data; the individuals $i$ for whom $x_{i,p}<\bar{x_{p}}$. The mean of those individuals' dependent variable is $\bar{y_{L}}$. $I_{R}$ is the remainder of the observations. These split points are simply values of the covariates that appear to be useful in terms of splitting the group into more similar sub-groups. 
+
+CART is a recursive algorithm, in that once a split has been estimated, the two sub-groups are then split, recursively, until further splits result in child groups groups that are no more similar than their parents. In "pruned" tree, there is some cost attached to making further splits; if the gain in terms of decreased sum of squares does not meet some cost, then the split is not made. This is an efficient way of decreasing over-fitting. 
+
+Once a tree is estimated, it can produce predicted values for a new observation *even if that observation is missing elements of* $X$. A new observation is simply "dropped" down the tree until it either reaches a terminal node (one with no child nodes) or until it reaches a node whose split is defined on a variable that is missing for the individual. Once it reaches this node, its predicted value for $y$ is simply the average $y$ for observations in that node in the training set. 
+
+# Random Forests
+
+While CART models are extremely easy to understand and visualise, they do tend to result in overfitting. They also do not capture smooth relationships well (there will only be as many distinct fitted values as there are terminal nodes). 
+
+Random Forests were designed to address these problems. They are essentially a collection of (normally thousands of) CART models, with two small twists. First, in a Random Forest, each tree is estimated on a random subset of the observations $I$. Second, at each node, only a proportion of all candidate $x_{p}$ are eligible to be split on. All trees are grown to their full extent---that is, not pruned. This results in the trees that make up a Random Forest being quite distinct, there being no individual observation or $x$ variable that has an enormous influence over all trees as a group. 
+
+To generate predicted values from a Random Forest, a new observation $x_{i}$ is passed down all trees, and the fitted value is the average of the fitted values in all trees. 
+
+# Random Forest proximity matrices
+
+This paper is not concerned with the (impressive, see Caruana and Niculescu-Mizil, 2006) predictive abilities of the Random Forest. Rather, the Random Forest generates a "proximity matrix" that gives a distance between all observations in the dataset. 
+
+When two observations fall into the same terminal node as one another, they are said to be *proximate*. The ($i$,$j$)th entry in a Random Forest's proximity matrix is the proportion of terminal nodes that observations $i$ and $j$ share across all trees. For additional robustness, it is desirable to use only "out-of-bag" observations in the calculation of proximities. These are the observations excluded when each tree is grown. In this formulation of the proximity matrix, the proximity score is the proporton of terminal nodes shared by two observations *for the trees that the observations were out-of-bag*.
+
+The proximity matrix is an attractive candidate for a distance measure between historical observations. It does not require defining a distance metric or estimating importance weights for the covariates. Because the Random Forest is supervised (it has a dependent variable), the proximities can be thought of as the distance between observations *in terms of the variables that matter for the prediction of y*. And because of the robust manner in which a Random Forest is estimated, (stationary) independent variables whose relationship with y is coincidental are less likely to influence the proximity score. Consequently, the analyst can afford to include many independent variables; those without a robust relationship will tend to be excluded. 
+
+# Analogy score weighting---the algorithm
+
+The aim of the following algorithm is to generate vector corresponding to periods $t_{1},\dots,T$ that contains weights denoting the similarity between all historical periods and period $T$. Period $T$ will typically be chosen to be the most recent period, as the model builder will generally want to build a useful model of the current state of the economy. 
+
+The first step is to construct a $T\times P$ matrix $X$ that contains $P$ variables that could be though of as describing the "state" of the economy/market conditions. These variables should be stationary.
+
+An aggregated proximity matrix is then constructed like so:
+
+```
+initialise pmat as a T by T matrix of 0s
+
+for p in 1 to P:
+  build Random Forest model of X[,p] | X[,-p], call this RF
+  pmat = pmat + proximity matrix of RF
+end
+pmat = 1/P * pmat
+```
+
+The $T$-th row of this matrix contains the proximities between period $T$ and all periods beforehand. This vector can be then used for weighting observations in a regression model. 
+
+The main tuning parameter that users should be aware of is the size of terminal nodes in each tree in the random forest. The default is that trees should grow until a split would not decrease the loss, or until a split would result in a terminal node containing fewer observations than the minimum. The default node size value in `R`'s implementation, `randomForest`, is 5. Increasing this size results in greater average proximity between observations, as the probability that any two observations share a terminal node is greater. 
+
+# A demonstration
+
+To illustrate, the procedure illustrated above was carried out on quarterly US data, specifically, the unemployment rate, the rate on short-term US Treasuries, and the quarter-on-quarter percentage change of the consumer price index, taking $T$ to be the first quarter of 2015. Random forests were trained on each of these variables, taking the others to be predictors, and proximity matrices were saved. The terminal node size used was 40, about a fifth of the sample.
+
+The plot below shows the result. Along the vertical axis is the date for which we would like historical analogies. Along the horizontal axis is the period being evaluated for similarity. The shading indicates the degree of similarity. 
+
+![A proximity matrix](analogy_matrix.pdf)
+
+Interestingly, there appear to be three or four distinct states; the first being the post-GFC period in the top right. The second is a period of relative tranquility, roughly coinciding with the period between the early 1990s recession and the GFC, and the period before the stagflation of the 1970s. The third period, first making itself apparent in the late 1960s and continuing through until the early 1990s, is a less defined period. The emergence of fairly discrete states is interesting, given that the model is one of continuous states. 
+
+Another important feature of the proximity matrix is its ability to inform the user when the current state of the world is without precedent in terms of the variables that help to generate predictions. When the state of the world differs substantially to the sample, then perhaps the implications of models estimated from (a very different) history should be trusted less. 
+
+A metric to evaluate the similarity of the current state to recorded history is to divide the effective sample size (the sum of weights) by the naive sample size (the number of observations) up to a given period. This gives the effective proportion of history up to a period that would be included if you were to use the analogy weights. It is a crude measure for similarity to all of recorded history. 
+
+![A proximity matrix](relevant_histories.pdf)
+
+# An application to core inflation
+
+To come
+
+# The historical solution estimated with HMC
+
+To come
+
+# Core inflation under both methodologies
+
+To come
+
+# US
+
+To come
+
+# Australia
+
+To come
+
+# An application to portfolio risk management during the GFC
+
+To come
+
+# Conclusion
+
+To come
