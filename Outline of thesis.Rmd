@@ -109,7 +109,7 @@ A metric to evaluate the similarity of the current state to recorded history is 
 
 # An application to core inflation
 
-To come
+
 
 # The historical solution estimated with HMC
 
@@ -134,3 +134,7 @@ To come
 # Conclusion
 
 To come
+
+Given the introduction of randomness in estimating the random forests that we use to estimate analogy weights, how sure should we be that a given proximity is meaningful? That is, is there a sense of "significance" of the proximity estimate? 
+
+Two of the random forest's tuning parameters have the greatest influence on proximity estimates. The first is `ntree`, the number of trees in the forest. A smaller number of trees relative to the number of observations is more likely to generate random matches. As the number of trees grows, the stability of proximity matches improves. 
