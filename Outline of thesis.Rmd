@@ -137,4 +137,37 @@ To come
 
 Given the introduction of randomness in estimating the random forests that we use to estimate analogy weights, how sure should we be that a given proximity is meaningful? That is, is there a sense of "significance" of the proximity estimate? 
 
-Two of the random forest's tuning parameters have the greatest influence on proximity estimates. The first is `ntree`, the number of trees in the forest. A smaller number of trees relative to the number of observations is more likely to generate random matches. As the number of trees grows, the stability of proximity matches improves. 
+Two of the random forest's tuning parameters have the greatest influence on proximity estimates. The first is `ntree`, the number of trees in the forest. A smaller number of trees relative to the number of observations is more likely to generate spurious matches. As the number of trees grows, the stability of proximity weights improves. This can be seen by taking the absolute value of the derivative of average proximity scores with respect to `ntree`. That is:
+
+\[
+\mbox{instability score} = \mbox{abs}\left(\frac{\partial \frac{1}{n^{2}}\sum_{i}\sum_{j}\mbox{proximity}_{i,j}}{\partial \mbox{ntree}}\right)
+\]
+
+
+
+# Download the real-time data from FRED; generate some visualisations
+
+
+# Get the model running quickly
+
+# Write a forecaster for the time varying parameter model
+
+# Back-test the three approaches: Regular VAR, TVP VAR, and Analogy Weighted VAR. 
+
+# Impulse response functions for a monetary policy shift at various times. 
+
+# Calculate log of the proximity scores
+
+# Another cool thing to do would be to look at the Volker deflation
+
+# Do everything with realtime data from ALFRED. 
+
+
+
+This is illustrated below. As is clear, there are diminishing returns to the number of trees, and so 
+
+![The change in proximity with an increase in the number of trees of 300](dprox.png)
+
+The second sourse of variation in proximity scores is the extent of each tree in the forest; that is, the number of terminal nodes relative the the number of observations. With a single terminal node in each tree, all observations will be trivially proximate, and analogy weights will be 1. This of course would defeat the purpose of using analogy weights! If trees are grown to a full extent (the minimum terminal node size of 5 be default), then a lower bound on the average weight will be the $\frac{5}{\mbox{number of obs}}$. In practice, the average node size will be considerably larger than the minimum node size. This is because candidate splits must both decrease terminal-node variance *and* result in two terminal nodes that exceed the minimum terminal node size.
+
+Choosing the optimal terminal node size will involve making a trade-off between 

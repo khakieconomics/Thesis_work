@@ -111,7 +111,7 @@ out2 <- out
 
 out2[,5:7] <- out2[,5:7]- out[,2:4]
 out2[,8:10] <- out2[,8:10]- out[,2:4]
-out2 <- out2[out2$quarter!=as.Date("2001-01-01"),]
+out2 <- out2#[out2$quarter!=as.Date("2001-01-01"),]
 out3 <- apply(out2[,5:10], 2, abs)
 
 apply(out3, 2, function(x) sqrt(mean(x^2)))
@@ -123,3 +123,5 @@ out3 %>% melt %>%
   ggplot(aes(x = Var1, y = value, group = Var2, colour = Type)) + 
   geom_line() + 
   facet_grid(Variable~.)
+
+
