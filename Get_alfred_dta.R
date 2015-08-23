@@ -136,5 +136,6 @@ R <- POLICYRATE[[1]] %>% select(-vintage_date) %>%
 vardat <- CPI3 %>% left_join(UNEMP3) %>% left_join(R) %>%
   rename(Date = name)
 
+save(vardat, file = "cpi_r_u_rev.RData")
 
 

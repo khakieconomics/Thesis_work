@@ -25,10 +25,10 @@ out <- left_join(out, out2)
 
 
 e2 <- new.env()
-ii <- 1
 for(ii in 1:(length(enddates)-1)){
   
   kk <- enddates[ii]
+  print(kk)
   kk1 <- enddates[ii+1]
   
   # Subset the dataset and create a "quarterly" version
@@ -104,14 +104,20 @@ for(ii in 1:(length(enddates)-1)){
   out[out$quarter==kk1,8:10] <- yhat2.mean
 }
 
-out2 <- out
+e3 <- as.list(e2)
+save(e3, file = "all_sims.RData")
 
+out2 <- out
 out2[,5:7] <- out2[,5:7]- out[,2:4]
 out2[,8:10] <- out2[,8:10]- out[,2:4]
-out2 <- out2#[out2$quarter!=as.Date("2001-01-01"),]
+
+plot.ts(data.frame(out2$CPI1, out2$CPI2))
+
 out3 <- apply(out2[,5:10], 2, abs)
 
-apply(out3, 2, function(x) sqrt(mean(x^2)))
+rmse <- apply(out3[-1,], 2, function(x) sqrt(mean(x^2)))
+rmse[1:3]/rmse[4:6]
+
 library(stringr)
 
 out3 %>% melt %>%
