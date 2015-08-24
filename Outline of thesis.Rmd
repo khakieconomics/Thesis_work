@@ -146,23 +146,24 @@ Two of the random forest's tuning parameters have the greatest influence on prox
 
 
 # Download the real-time data from FRED; generate some visualisations
+DONE
+
+# Write a forecaster for the time varying parameter model 
+not done
+
+# Back-test the three approaches: Regular VAR, TVP VAR, and Analogy Weighted VAR. DONE TWO
 
 
-# Get the model running quickly
+# Another cool thing to do would be to look at the Volker deflation DONE
 
-# Write a forecaster for the time varying parameter model
+# Do everything with realtime data from ALFRED. DONE
 
-# Back-test the three approaches: Regular VAR, TVP VAR, and Analogy Weighted VAR. 
+# Relagtive likelihood of forecast error
 
+To do if time permitting
 # Impulse response functions for a monetary policy shift at various times. 
 
 # Calculate log of the proximity scores
-
-# Another cool thing to do would be to look at the Volker deflation
-
-# Do everything with realtime data from ALFRED. 
-
-
 
 This is illustrated below. As is clear, there are diminishing returns to the number of trees, and so 
 

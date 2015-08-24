@@ -113,18 +113,46 @@ out2[,8:10] <- out2[,8:10]- out[,2:4]
 
 plot.ts(data.frame(out2$CPI1, out2$CPI2))
 
-out3 <- apply(out2[,5:10], 2, abs)
+out3 <- apply(out2[,5:10], 2, abs) %>% as.data.frame
 
 rmse <- apply(out3[-1,], 2, function(x) sqrt(mean(x^2)))
 rmse[1:3]/rmse[4:6]
 
 library(stringr)
 
-out3 %>% melt %>%
-  mutate(Variable = str_extract(Var2, "[A-Za-z]*"),
-         Type = str_extract(Var2, "[0-9]")) %>%
-  ggplot(aes(x = Var1, y = value, group = Var2, colour = Type)) + 
+out3$Date <- out$quarter
+out3 %>% melt(id = "Date") %>%#head
+  mutate(Variable = str_extract(variable, "[A-Za-z]*"),
+         Type = str_extract(variable, "[0-9]")) %>% 
+  ggplot(aes(x = Date, y = value, group = variable, colour = Type)) + 
   geom_line() + 
   facet_grid(Variable~.)
+
+
+out3 %>% melt(id = "Date") %>%#head
+  mutate(Variable = str_extract(variable, "[A-Za-z]*"),
+         Type = str_extract(variable, "[0-9]")) %>% group_by(Date, Variable) %>%
+  summarise(Relative_error = value[Type=="1"] - value[Type=="2"]) %>%
+  ggplot(aes(x = Date, y = Relative_error)) + 
+  geom_bar(stat = "identity", fill = "orange", alpha = 0.7) + 
+  facet_grid(Variable~.) +
+  theme_bw(base_size = 16) +
+  ylab("1-year-ahead forecast error relative\nto benchmark model\nper cent") +
+  ggtitle("If you train forecasting models on\nrelevant data only, you get better forecasts\n")
+
+
+
+out3 %>% melt(id = "Date") %>%#head
+  mutate(Variable = str_extract(variable, "[A-Za-z]*"),
+         Type = str_extract(variable, "[0-9]")) %>% group_by(Date, Variable) %>%
+  summarise(Relative_error = value[Type=="1"] - value[Type=="2"]) %>% filter(!is.na(Relative_error)) %>%
+  group_by(Variable) %>% arrange(Date) %>%
+  mutate(Cumulative_improvement = cumsum(Relative_error)) %>%
+  ggplot(aes(x = Date, y = -Cumulative_improvement)) + 
+  geom_bar(stat = "identity", fill = "orange", alpha = 0.7) + 
+  facet_grid(Variable~.) +
+  theme_bw(base_size = 16) +
+  ylab("Cumulative 1-year-ahead forecast error of benchmark model\nrelative to proxmatch model\nper cent") +
+  ggtitle("If you train forecasting models on\nrelevant data only, you get better forecasts\n")
 
 
