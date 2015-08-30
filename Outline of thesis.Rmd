@@ -3,32 +3,38 @@ title: How would an historian do time-series econometrics? Analogy weighting usi
   machine learning
 author: "Jim Savage"
 date: "7 July 2015"
-output: html_document
+output: pdf_document
 ---
 
-# Summary
+# Abstract
 
-Time-varying parameter models are commonly used in applied macroeconomics as a means of capturing unmodelled structural changes in the macroeconomy. There are three commonly used methods of generating time-variation in parameter estimates. The first is what I term an "unprincpled" approach, which includes adjusting the amount of history included in the training set, either explicitly or by weighting. A second, more principled approach is Markov switching, where an economy may flip between states, each associated with a set of parameters. Another principled approach preferred by most practitioners is to model the paremeters directly as an unobserved state that is allowed to vary over time. 
-
-This paper presents a "semi-principled approach", a weighting methodology in which parameters are informed to a greater degree by time-periods similar a period chosen by the analyst---normally the last period. In doing so, the method captures the simplicity of a weighting approach, but one in which parameters from similar states of the world have similar values. Because there are far fewer parameters to estimate, it does not suffer from the overparameterisation issues associated with proper time-varying parameter model, and so is less reliant on the selection of priors. 
-
-The method has an important biproduct: in periods without historical precedent, the method provides very low weights on historical observations; coupled with Bayesian techniques, extremely wide priors can take over.  There is little value in giving undue weight to irrelevant histories. 
-
-The method is novel in that it uses the Random Forest, a tool from machine learning, in order to generate the weighting vector. This tool is extremely popular in applied classification and prediction tasks, though has not been widely applied to inferential econometrics. This paper is an attempt to bridge the gap.
 
 # Introduction
 
-In building empirical macroeconomic models for policy simulation and forecasting *today*, how much history should be included? Too much history and the analyst risks estimating parameters that describe history well but have little relevance to today. With too little history, estimates risk missing out on useful information. Implicit in doing time-series work is an assumption that history provides a useful guide for parameterising models. 
+In building empirical macroeconomic models for policy simulation and forecasting *today*, how much history should be included? Too much history and the analyst risks estimating parameters that describe history well but have little relevance to today. With too little history, estimates risk missing out on useful information. Implicit in doing time-series work is an assumption that history provides a useful guide for parameterising economic models. 
 
-The method presented in this paper takes this one step further: I assert that if history provides a useful guide, then more analogous histories should provide a better guide. Conversely, we should have a great deal of uncertainty in model projections being made if the current state of the world is markedly different from the world from which the model parameters were estimated. 
+The method presented in this paper takes this one step further: I assert that if history provides a useful guide, then more analogous histories should provide a better guide. Conversely, we should have little confidence in model projections being made if the current state of the world is markedly different from the world from which the model parameters were estimated. 
 
-How should we decide which histories are most relevant to today? A naive approach is to assume that co-movements between variables over the recent history are likely to emerge from a structural relationship that is relevant for the near future. Making such an assumption motivates techniques often used in industry and government work[cite: BASEL III], such as estimating models over a rolling window, or using exponential smoothing to give less weight to more distant historial observations. 
+How should we decide which histories are most relevant to today? The techniques most commonly used to address this problem aim to account for unmodelled structural change in the underlying data generating process. They come in varying degrees of complexity. 
 
-Another approach, one implicitly favoured by historians, is to analogise today with periods of history that have similar characteristics, and draw inference based on those analogies. There is a large problem in applying this *historian's* approach formally to time-series models: how can we determine which time-periods are "similar" to today? Estimating similarity typically involves selecting a metric with which we can measure distance between periods. But how much weight should be given to the various dimensions? And should these weights change over time? Perhaps one variable is very important in some states of the world and not in others.
+A naive or un-principled approach is to assume that co-movements between variables over the recent history are likely to emerge from a structural relationship that is relevant for the near future. Making such an assumption motivates techniques often used in industry and government work[cite: BASEL III], such as estimating models over a rolling window, or using exponential smoothing to give less weight to more distant historial observations. These techniques are easy to understand and implement, but they afford many degrees of freedom to the researcher. 
 
-This paper describes an algorithm to estimate "analogy weights", which can then be used to help regression models learn more from similar periods of history. These weights have two important features. First, they are metric-free; a variable's importance to the weight can vary with states of the world. Second, there are automated out-of-sample robustness checks in the construction of the weights, and so weights represent only similarities on dimensions that appear to have a robust relationship to the dependent variable. When used in a Bayesian framework with wide priors on residual variances, this algorithm can help increase uncertainty when the model is being asked to generate projections in a world that is not similar to the world used to estimate the model. The algorithm also requires very few tuning parameters, making it a useful turn-key solution to many time-series modelling tasks. 
+A second class of strategies includes all historical data, but explicitly models the time variation in model parameters, either using regime-switching frameworks or continuous-state approaches. These approaches are more principled, in that the parameters and data come from a generative model (requiring that the researcher be explicit in their beliefs). Yet they are lacking on other dimensions. The models are typically difficult to implement, are richly parameterised (necessitating informative priors), and, often, the generative models themselves give non-zero probability to implausible outcomes, such as explosive states.
 
-The paper presents two applations of the algorithm. The first applies the technique to the estimation of the permanent component of inflation. This illustrates the method's ability to generate time-varying parameters and forecasts that perform very well relative to competing methods. The second application generates Value-at-Risk estimates for a small portfolio of liquid stocks, illustrating the methodology's suitability to portfolio risk management.
+How would historians build econometric models? The 'historianist' approach proposed in this paper is to analogise today with periods of history that have similar characteristics, and draw inference based on those analogies. There is a large problem in applying this historianist approach formally to time-series models: how can we determine which time-periods are "similar" to today? Estimating similarity typically involves selecting a metric with which we can measure the difference between periods. But how much weight should be given to the various dimensions? And should these weights change over time? Perhaps one variable is very important in some states of the world and not in others.
+
+This paper describes an algorithm that makes use machine learning to estimate "analogy weights". These weights can be used to help regression models learn more from similar periods of history. The weights have two important features. First, they are metric-free; a variable's importance to the weight can vary with states of the world. Second, there are automated out-of-sample robustness checks in the construction of the weights, and so weights represent only similarities on dimensions that appear to have a robust relationship to the dependent variable. When used in a Bayesian framework with informative priors on (large) residual variance parameters, this algorithm can help increase uncertainty when the model is being asked to generate projections in a world that is not similar to the world used to estimate the model. The algorithm also requires very few tuning parameters, making it a useful turn-key solution to many time-series modelling tasks. 
+
+The paper presents two applations of the algorithm. The first is in estimating "core" inflation---the permanent component of inflation, using a Vector Autoregression (VAR) with analogy weights. The second is an application to portfolio risk management, in particular estimating Value at Risk (VaR) for a small portfolio of stocks during the Global Financial Crisis. This second application illustrates how researchers can easily incorporate analogy weights into multivatiate GARCH models.
+
+# Literature
+
+The 
+
+
+
+# Outline of the algorithm
+
 
 
 # Introducing Random Forests
@@ -49,7 +55,7 @@ Each node of the tree---a juncture between branches---is associated with a "spli
 
 Where $I_{L}$ is the "left" part of the data; the individuals $i$ for whom $x_{i,p}<\bar{x_{p}}$. The mean of those individuals' dependent variable is $\bar{y_{L}}$. $I_{R}$ is the remainder of the observations. These split points are simply values of the covariates that appear to be useful in terms of splitting the group into more similar sub-groups. 
 
-CART is a recursive algorithm, in that once a split has been estimated, the two sub-groups are then split, recursively, until further splits result in child groups groups that are no more similar than their parents. In "pruned" tree, there is some cost attached to making further splits; if the gain in terms of decreased sum of squares does not meet some cost, then the split is not made. This is an efficient way of decreasing over-fitting. 
+CART is a recursive algorithm, in that once a split has been estimated, the two sub-groups are then split, recursively, until further splits result in child groups groups that are no more similar than their parents, or until a minimum node size has been reached. In "pruned" tree, there is some cost attached to making further splits; if the gain in terms of decreased sum of squares does not meet some cost, then the split is not made. This is an efficient way of decreasing over-fitting. 
 
 Once a tree is estimated, it can produce predicted values for a new observation *even if that observation is missing elements of* $X$. A new observation is simply "dropped" down the tree until it either reaches a terminal node (one with no child nodes) or until it reaches a node whose split is defined on a variable that is missing for the individual. Once it reaches this node, its predicted value for $y$ is simply the average $y$ for observations in that node in the training set. 
 
@@ -91,7 +97,78 @@ The $T$-th row of this matrix contains the proximities between period $T$ and al
 
 The main tuning parameter that users should be aware of is the size of terminal nodes in each tree in the random forest. The default is that trees should grow until a split would not decrease the loss, or until a split would result in a terminal node containing fewer observations than the minimum. The default node size value in `R`'s implementation, `randomForest`, is 5. Increasing this size results in greater average proximity between observations, as the probability that any two observations share a terminal node is greater. 
 
-# A demonstration
+# Tuning parameters
+
+Given the introduction of randomness in estimating the random forests that we use to estimate analogy weights, how sure should we be that a given proximity is meaningful? That is, is there a sense of "significance" of the proximity estimate? 
+
+Two of the random forest's tuning parameters have the greatest influence on proximity estimates. The first is `ntree`, the number of trees in the forest. A smaller number of trees relative to the number of observations is more likely to generate spurious matches. As the number of trees grows, the stability of proximity weights improves. This can be seen by taking the absolute value of the derivative of average proximity scores with respect to `ntree`. That is:
+
+\[
+\mbox{instability score} = \mbox{abs}\left(\frac{\partial \frac{1}{n^{2}}\sum_{i}\sum_{j}\mbox{proximity}_{i,j}}{\partial \mbox{ntree}}\right)
+\]
+
+This is illustrated below. As is clear, there are diminishing returns to the number of trees.  
+
+
+The second sourse of variation in proximity scores is the extent of each tree in the forest; that is, the number of terminal nodes relative the the number of observations. With a single terminal node in each tree, all observations will be trivially proximate, and analogy weights will be 1. This of course would defeat the purpose of using analogy weights! If trees are grown to a full extent (the minimum terminal node size (`nodesize`) of 5 be default), then a lower bound on the average weight will be the $\frac{5}{\mbox{number of obs}}$. In practice, the average node size will be considerably larger than the minimum node size. This is because candidate splits must both decrease terminal-node variance *and* result in two terminal nodes that exceed the minimum terminal node size.
+
+Choosing the optimal terminal node size will involve making a trade-off between including potentially irrelevant (or misleading) histories for larger values of `modesize`, and having more uncertainty in estimates for smaller values of `nodesize`. The choice should be influenced by the number of parameters in the economic model being estimated, so that on average there are a sufficient number of effective observations (ie. the average weight multiplied by the total number of observations) to provide guidance for parameter values. 
+
+```{r, echo = F, cache = T}
+
+library(randomForest); library(dplyr); library(ggplot2); library(reshape2)
+load("quarterly_data.RData")
+
+dss <- dss %>%
+  mutate(Unemp.1 = lag(Unemp),
+         Unemp.2 = lag(Unemp, 2),
+         CPI.1 = lag(CPI),
+         CPI.2 = lag(CPI, 2),
+         r.1 = lag(r),
+         r.2 = lag(r, 2)) %>% filter(!is.na(CPI.2))
+indvar <- dss %>% select(Unemp.1, Unemp.2, r.1, r.2, CPI.1, CPI.2) %>% as.data.frame %>% as.matrix
+
+rf1 <- randomForest(Unemp ~ Unemp.1 + Unemp.2 + CPI.1 + CPI.2 + r.1 + r.2, data = dss, proximity = T, ntree = 5000, nodesize = 40 )
+prox <- rf1$proximity[nrow(rf1$proximity),]
+
+dss %>% mutate(prox = prox/sum(prox)) %>%
+  select(-Unemp, -r, -CPI) %>% melt(id = "prox") %>% 
+  ggplot(aes(x = value)) +
+  geom_density(aes(weight = 1/length(prox))) +
+  geom_density(aes(weight = prox/sum(prox)), colour  = "red") +
+  facet_grid(variable~., scales = "free") +
+  theme_bw(base_size = 11) +
+  ggtitle("KDE of independent variables, weighted and unweighted\n(red = analogy weighted; black = unweighted)")
+
+mod.weighted <- lm(dss$Unemp ~ ., data = indvar %>% as.data.frame, weights = prox)
+mod.unweighted <- lm(dss$Unemp ~ ., data = indvar %>% as.data.frame, subset = 1:nrow(dss)>(nrow(dss)-round(sum(prox))))
+
+df1 <- data.frame(Coef = names(coef(mod.weighted)), Coef_unweighted = coef(mod.unweighted), Coef_weighted = coef(mod.weighted)) %>% melt(id = "Coef") %>% as.data.frame
+
+df2 <- data.frame(Coef = names(coef(mod.weighted)), Coef_unweighted = arm::se.coef(mod.unweighted), Coef_weighted = arm::se.coef(mod.weighted)) %>% melt(id = "Coef")
+
+df1$se = df2$value
+df1 <- df1 %>% mutate(Lower = value - 1.96*se,
+         Upper = value + 1.96*se)
+
+coefplot <- df1 %>% melt(id = 1:4, variable.name = "Bounds", value.name = "B") %>% 
+  ggplot(aes(x = Coef)) +
+  geom_bar(aes(y = value), position = "dodge", stat = "identity", fill = "orange", alpha = 0.5) +
+  geom_line(aes(y = B, group = Coef), position = "dodge") +
+  facet_grid(.~variable)
+
+```
+
+This calculation is not straightforward; using analogy weighting can both increase and decrease the precision of parameter estimates. Because analogy scores discount dissimilar observations, they necessarily compress the support on which the parameters are estimated (see figure X above). Taken alone, this should increase uncertainty in the parameter estimates. But the entire notion of proximity weighting is that irrelevant histories are just that---and co-movements in irrelevant periods simply confound our inference. If the co-movements between dependent and independent variables during analogous histories are less variable, then the precision of parameter estimates will *increase* under analogy weighting. 
+
+To illustrate, take a simple linear model of unemployment given first and second lagged values of unemployment, short-term interest rates and annual CPI growth. 
+
+```{r, echo = F}
+library(ggplot2)
+coefplot + coord_flip()
+```
+
+## Application 1: Changing estimates of the permanent component of inflation
 
 To illustrate, the procedure illustrated above was carried out on quarterly US data, specifically, the unemployment rate, the rate on short-term US Treasuries, and the quarter-on-quarter percentage change of the consumer price index, taking $T$ to be the first quarter of 2015. Random forests were trained on each of these variables, taking the others to be predictors, and proximity matrices were saved. The terminal node size used was 40, about a fifth of the sample.
 
@@ -107,10 +184,6 @@ A metric to evaluate the similarity of the current state to recorded history is 
 
 ![A proximity matrix](relevant_histories.pdf)
 
-# An application to core inflation
-
-
-
 # The historical solution estimated with HMC
 
 To come
@@ -123,10 +196,6 @@ To come
 
 To come
 
-# Australia
-
-To come
-
 # An application to portfolio risk management during the GFC
 
 To come
@@ -135,13 +204,6 @@ To come
 
 To come
 
-Given the introduction of randomness in estimating the random forests that we use to estimate analogy weights, how sure should we be that a given proximity is meaningful? That is, is there a sense of "significance" of the proximity estimate? 
-
-Two of the random forest's tuning parameters have the greatest influence on proximity estimates. The first is `ntree`, the number of trees in the forest. A smaller number of trees relative to the number of observations is more likely to generate spurious matches. As the number of trees grows, the stability of proximity weights improves. This can be seen by taking the absolute value of the derivative of average proximity scores with respect to `ntree`. That is:
-
-\[
-\mbox{instability score} = \mbox{abs}\left(\frac{\partial \frac{1}{n^{2}}\sum_{i}\sum_{j}\mbox{proximity}_{i,j}}{\partial \mbox{ntree}}\right)
-\]
 
 
 
@@ -165,10 +227,18 @@ To do if time permitting
 
 # Calculate log of the proximity scores
 
-This is illustrated below. As is clear, there are diminishing returns to the number of trees, and so 
 
-![The change in proximity with an increase in the number of trees of 300](dprox.png)
+# Cutting room floor: 
 
-The second sourse of variation in proximity scores is the extent of each tree in the forest; that is, the number of terminal nodes relative the the number of observations. With a single terminal node in each tree, all observations will be trivially proximate, and analogy weights will be 1. This of course would defeat the purpose of using analogy weights! If trees are grown to a full extent (the minimum terminal node size of 5 be default), then a lower bound on the average weight will be the $\frac{5}{\mbox{number of obs}}$. In practice, the average node size will be considerably larger than the minimum node size. This is because candidate splits must both decrease terminal-node variance *and* result in two terminal nodes that exceed the minimum terminal node size.
+### Old intro: 
 
-Choosing the optimal terminal node size will involve making a trade-off between 
+Time-varying parameter models are commonly used in applied macroeconomics as a means of capturing unmodelled structural changes in the macroeconomy. There are three commonly used methods of generating time-variation in parameter estimates. The first is what I term an "unprincpled" approach, which includes adjusting the amount of history included in the training set, either explicitly or by weighting. A second, more principled approach is Markov switching, where an economy may flip between states, each associated with a set of parameters. Another principled approach preferred by most practitioners is to model the paremeters directly as an unobserved state that is allowed to vary over time. 
+
+This paper presents a "semi-principled approach", a weighting methodology in which parameters are informed to a greater degree by time-periods similar a period chosen by the analyst---normally the last period. In doing so, the method captures the simplicity of a weighting approach, but one in which parameters from similar states of the world have similar values. Because there are far fewer parameters to estimate, it does not suffer from the overparameterisation issues associated with proper time-varying parameter model, and so is less reliant on the selection of priors.
+
+The method has an important biproduct: in periods without historical precedent, the method provides very low weights on historical observations. This feature, coupled with Bayesian techniques that provide fairly tight priors on large variance parameters, allows the model to express *ignorance* when it is asked to learn from histories quite dissimilar to the present. There is little value in giving undue weight to irrelevant histories. 
+
+The method is novel in that it uses the Random Forest, a tool from machine learning, in order to generate the weighting vector. This tool is extremely popular in applied classification and prediction tasks, though has not been widely applied to inferential econometrics. This paper is an attempt to bridge the gap.
+
+
+ With the term interpreted loosely, these approaches are *purer*, in that both the data and parameters come from a generative model. Yet in most applications, time-variation in the parameters is assumed to come from (possibly non-stationary) unmodelled structural change. 
