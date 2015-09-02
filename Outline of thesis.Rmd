@@ -73,11 +73,11 @@ This paper is not concerned with the (impressive, see Caruana and Niculescu-Mizi
 
 When two observations fall into the same terminal node as one another, they are said to be *proximate*. The ($i$,$j$)th entry in a Random Forest's proximity matrix is the proportion of terminal nodes that observations $i$ and $j$ share across all trees. For additional robustness, it is desirable to use only "out-of-bag" observations in the calculation of proximities. These are the observations excluded when each tree is grown. In this formulation of the proximity matrix, the proximity score is the proporton of terminal nodes shared by two observations *for the trees that the observations were out-of-bag*.
 
-The proximity matrix is an attractive candidate for a distance measure between historical observations. It does not require defining a distance metric or estimating importance weights for the covariates. Because the Random Forest is supervised (it has a dependent variable), the proximities can be thought of as the distance between observations *in terms of the variables that matter for the prediction of y*. And because of the robust manner in which a Random Forest is estimated, (stationary) independent variables whose relationship with y is coincidental are less likely to influence the proximity score. Consequently, the analyst can afford to include many independent variables; those without a robust relationship will tend to be excluded. 
+The proximity matrix is an attractive candidate for a distance measure between historical observations. It does not require defining a distance metric or estimating importance weights for the covariates. Because the Random Forest is supervised (it has a dependent variable), the proximities can be thought of as the distance between observations *in terms of the variables that matter for the prediction of y*. And because of the robust manner in which a Random Forest is estimated, (stationary) independent variables whose relationship with $y$ is coincidental are less likely to influence the proximity score. Consequently, the analyst can afford to include many independent variables; those without a robust relationship will tend to be excluded. 
 
 # Analogy score weighting---the algorithm
 
-The aim of the following algorithm is to generate vector corresponding to periods $t_{1},\dots,T$ that contains weights denoting the similarity between all historical periods and period $T$. Period $T$ will typically be chosen to be the most recent period, as the model builder will generally want to build a useful model of the current state of the economy. 
+The aim of the following algorithm is to generate a vector corresponding to periods $t_{1},\dots,T$ that contains weights denoting the similarity between all historical periods and period $T$. Period $T$ will typically be chosen to be the most recent period, as the model builder will generally want to build a useful model of the current state of the economy. 
 
 The first step is to construct a $T\times P$ matrix $X$ that contains $P$ variables that could be though of as describing the "state" of the economy/market conditions. These variables should be stationary.
 
@@ -95,8 +95,6 @@ pmat = 1/P * pmat
 
 The $T$-th row of this matrix contains the proximities between period $T$ and all periods beforehand. This vector can be then used for weighting observations in a regression model. 
 
-The main tuning parameter that users should be aware of is the size of terminal nodes in each tree in the random forest. The default is that trees should grow until a split would not decrease the loss, or until a split would result in a terminal node containing fewer observations than the minimum. The default node size value in `R`'s implementation, `randomForest`, is 5. Increasing this size results in greater average proximity between observations, as the probability that any two observations share a terminal node is greater. 
-
 # Tuning parameters
 
 Given the introduction of randomness in estimating the random forests that we use to estimate analogy weights, how sure should we be that a given proximity is meaningful? That is, is there a sense of "significance" of the proximity estimate? 
@@ -109,12 +107,13 @@ Two of the random forest's tuning parameters have the greatest influence on prox
 
 This is illustrated below. As is clear, there are diminishing returns to the number of trees.  
 
+The second main tuning parameter that users should be aware of is the size of terminal nodes in each tree in the random forest, `nodesize`. The default is that trees should grow until a split would not decrease the loss, or until a split would result in a terminal node containing fewer observations than the minimum. The default node size value in `R`'s implementation, `randomForest`, is 5. Increasing this size results in greater average proximity between observations, as the probability that any two observations share a terminal node is greater.
 
-The second sourse of variation in proximity scores is the extent of each tree in the forest; that is, the number of terminal nodes relative the the number of observations. With a single terminal node in each tree, all observations will be trivially proximate, and analogy weights will be 1. This of course would defeat the purpose of using analogy weights! If trees are grown to a full extent (the minimum terminal node size (`nodesize`) of 5 be default), then a lower bound on the average weight will be the $\frac{5}{\mbox{number of obs}}$. In practice, the average node size will be considerably larger than the minimum node size. This is because candidate splits must both decrease terminal-node variance *and* result in two terminal nodes that exceed the minimum terminal node size.
+With a single terminal node in each tree, all observations will be trivially proximate, and analogy weights will be 1. This of course would defeat the purpose of using analogy weights! If trees are grown to a full extent (the minimum terminal node size), then a lower bound on the average weight will be the $\frac{5}{\mbox{number of obs}}$. In practice, the average node size will be considerably larger than the minimum node size. This is because candidate splits must both decrease terminal-node variance *and* result in two terminal nodes that exceed the minimum terminal node size.
 
 Choosing the optimal terminal node size will involve making a trade-off between including potentially irrelevant (or misleading) histories for larger values of `modesize`, and having more uncertainty in estimates for smaller values of `nodesize`. The choice should be influenced by the number of parameters in the economic model being estimated, so that on average there are a sufficient number of effective observations (ie. the average weight multiplied by the total number of observations) to provide guidance for parameter values. 
 
-```{r, echo = F, cache = T}
+```{r, echo = F, message = F}
 
 library(randomForest); library(dplyr); library(ggplot2); library(reshape2)
 load("quarterly_data.RData")
@@ -128,10 +127,10 @@ dss <- dss %>%
          r.2 = lag(r, 2)) %>% filter(!is.na(CPI.2))
 indvar <- dss %>% select(Unemp.1, Unemp.2, r.1, r.2, CPI.1, CPI.2) %>% as.data.frame %>% as.matrix
 
-rf1 <- randomForest(Unemp ~ Unemp.1 + Unemp.2 + CPI.1 + CPI.2 + r.1 + r.2, data = dss, proximity = T, ntree = 5000, nodesize = 40 )
+rf1 <- randomForest(r ~ Unemp.1 + Unemp.2 + CPI.1 + CPI.2 + r.1 + r.2, data = dss, proximity = T, ntree = 5000, nodesize = 40, oob.prox = T)
 prox <- rf1$proximity[nrow(rf1$proximity),]
 
-dss %>% mutate(prox = prox/sum(prox)) %>%
+densities <- dss %>% mutate(prox = prox/sum(prox)) %>%
   select(-Unemp, -r, -CPI) %>% melt(id = "prox") %>% 
   ggplot(aes(x = value)) +
   geom_density(aes(weight = 1/length(prox))) +
@@ -140,9 +139,11 @@ dss %>% mutate(prox = prox/sum(prox)) %>%
   theme_bw(base_size = 11) +
   ggtitle("KDE of independent variables, weighted and unweighted\n(red = analogy weighted; black = unweighted)")
 
-mod.weighted <- lm(dss$Unemp ~ ., data = indvar %>% as.data.frame, weights = prox)
-mod.unweighted <- lm(dss$Unemp ~ ., data = indvar %>% as.data.frame, subset = 1:nrow(dss)>(nrow(dss)-round(sum(prox))))
-
+png("covariate_density.png")
+densities
+dev.off()
+mod.weighted <- lm(dss$r ~ ., data = indvar %>% as.data.frame, weights = prox)
+mod.unweighted <- lm(dss$r ~ ., data = indvar %>% as.data.frame, subset = 1:nrow(dss)>(nrow(dss)-round(sum(prox))))
 df1 <- data.frame(Coef = names(coef(mod.weighted)), Coef_unweighted = coef(mod.unweighted), Coef_weighted = coef(mod.weighted)) %>% melt(id = "Coef") %>% as.data.frame
 
 df2 <- data.frame(Coef = names(coef(mod.weighted)), Coef_unweighted = arm::se.coef(mod.unweighted), Coef_weighted = arm::se.coef(mod.weighted)) %>% melt(id = "Coef")
@@ -155,90 +156,85 @@ coefplot <- df1 %>% melt(id = 1:4, variable.name = "Bounds", value.name = "B") %
   ggplot(aes(x = Coef)) +
   geom_bar(aes(y = value), position = "dodge", stat = "identity", fill = "orange", alpha = 0.5) +
   geom_line(aes(y = B, group = Coef), position = "dodge") +
-  facet_grid(.~variable)
+  facet_grid(.~variable) +
+  coord_flip() +
+  theme_bw(base_size = 11)
 
 ```
 
-This calculation is not straightforward; using analogy weighting can both increase and decrease the precision of parameter estimates. Because analogy scores discount dissimilar observations, they necessarily compress the support on which the parameters are estimated (see figure X above). Taken alone, this should increase uncertainty in the parameter estimates. But the entire notion of proximity weighting is that irrelevant histories are just that---and co-movements in irrelevant periods simply confound our inference. If the co-movements between dependent and independent variables during analogous histories are less variable, then the precision of parameter estimates will *increase* under analogy weighting. 
+This calculation is not straightforward; using analogy weighting can both increase and decrease the precision of parameter estimates. Because analogy scores discount dissimilar observations, they necessarily compress the support on which the parameters are estimated (see figures XX and XX2 in the next chapter). Taken alone, this should increase uncertainty in the parameter estimates. But the entire notion of proximity weighting is that irrelevant histories are just that---and co-movements during irrelevant periods simply confound our understanding of the true relationship today. If the co-movements between dependent and independent variables during analogous histories are less variable, then the precision of parameter estimates will *increase* under analogy weighting. 
 
-To illustrate, take a simple linear model of unemployment given first and second lagged values of unemployment, short-term interest rates and annual CPI growth. 
+### An example of estimating proximity weights
+
+The application below illustrates how one could use analogy weights in estimating the parameters of a simple economic model, and discusses the consequences of modelling choices. 
+
+The procedure of building analogy weights discussed above was carried out on quarterly US data, specifically, the unemployment rate, the rate on short-term US Treasuries, and the quarter-on-quarter percentage change of the major cities consumer price index, taking $T$ to be the first quarter of 2015. Random forests were trained on each of these variables, taking the first and second lags of the others to be predictors, and the out-of-bag proximity matrices were saved. The terminal node size used was 40, about a fifth of the sample.
+
+The plot below shows the resulting proximity matrix. Along the vertical axis is the date for which we would like historical analogies. Along the horizontal axis is the period being evaluated for similarity. The shading indicates the degree of similarity. 
+
+![A proximity matrix](analogy_matrix.pdf)
+
+
+
+
+Interestingly, there appear to be three or four distinct states; the first being the post-GFC period in the top right. The second is a period of relative tranquility, roughly coinciding with the period between the early 1990s recession and the GFC, and the period before the stagflation of the 1970s. The third period, first making itself apparent in the late 1960s and continuing through until the early 1990s, is a less defined period. The emergence of fairly discrete states is interesting, given that the model is one of continuous states. 
+
+Another important feature of the proximity matrix is its ability to inform the user when the current state of the world is without precedent in terms of the variables that help to generate predictions. When the state of the world differs substantially to the sample, then perhaps the implications of models estimated from (a very different) history should be trusted less. 
+
+A metric to evaluate the similarity of the current state to recorded history is to divide the effective sample size (the sum of weights) by the naive sample size (the number of observations) up to a given period. This gives the effective proportion of history up to a period that would be included if you were to use the analogy weights. It is a crude measure for similarity to all of recorded history, illustrated in the figure below. 
+
+![A proximity matrix](relevant_histories.pdf)
+
+As a small illustration of how analogy weights impact parameter estimates and confidence bounds can be seen
+
+```{r, message=F, echo = F}
+dss$prox <- prox
+
+uw <- dss %>% ggplot(aes(x = CPI.1, y = r)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  theme_bw(base_size = 11) +
+  xlab("First lag of CPI") +
+  ylab("Interest rate") +
+  ggtitle("Interest-CPI correlation, no weighting")
+
+library(lubridate)
+dss <- dss %>% mutate(Decade = seq(from = as.Date("1960-07-01"), by = "quarter", length.out = nrow(dss)) %>% decimal_date %>% signif(digits = 3))
+w <- dss %>% ggplot(aes(x = CPI.1, y = r, weight = prox, size = prox, colour = as.factor(Decade))) +
+  geom_point() +
+  geom_smooth(method = "lm", colour = "black") +
+  theme_bw(base_size = 11) +
+  xlab("First lag of CPI") +
+  ylab("Interest rate") +
+  scale_size(guide = F)+
+  ggtitle("Interest-CPI correlation, with weighting")
+
+
+library(gridExtra)
+grid.arrange(uw, w)
+```
+
+
 
 ```{r, echo = F}
 library(ggplot2)
 coefplot + coord_flip()
 ```
 
-## Application 1: Changing estimates of the permanent component of inflation
+# An application to the estimation of core inflation
 
-To illustrate, the procedure illustrated above was carried out on quarterly US data, specifically, the unemployment rate, the rate on short-term US Treasuries, and the quarter-on-quarter percentage change of the consumer price index, taking $T$ to be the first quarter of 2015. Random forests were trained on each of these variables, taking the others to be predictors, and proximity matrices were saved. The terminal node size used was 40, about a fifth of the sample.
+Most central banks have a mandate to fight inflation, either explicitly, as with a numerical inflation target, or implicitly, as with the Fed's "just do it" approach (Mishkin, 2002). The inflation that is typically targetted is a notion of "core inflation", the inflation that would remain after self-correcting blips have been ignored. This is a latent quantity, and must be estimated. Various methods of estimating core inflation exist, such as removing volatile component price series, or by decomposing price series into factors using principle component analysis. 
 
-The plot below shows the result. Along the vertical axis is the date for which we would like historical analogies. Along the horizontal axis is the period being evaluated for similarity. The shading indicates the degree of similarity. 
+## Definition of core inflation
 
-![A proximity matrix](analogy_matrix.pdf)
+## Three approaches formally
 
-Interestingly, there appear to be three or four distinct states; the first being the post-GFC period in the top right. The second is a period of relative tranquility, roughly coinciding with the period between the early 1990s recession and the GFC, and the period before the stagflation of the 1970s. The third period, first making itself apparent in the late 1960s and continuing through until the early 1990s, is a less defined period. The emergence of fairly discrete states is interesting, given that the model is one of continuous states. 
+## Data used
 
-Another important feature of the proximity matrix is its ability to inform the user when the current state of the world is without precedent in terms of the variables that help to generate predictions. When the state of the world differs substantially to the sample, then perhaps the implications of models estimated from (a very different) history should be trusted less. 
+## Forecasting performance of the three approaches
 
-A metric to evaluate the similarity of the current state to recorded history is to divide the effective sample size (the sum of weights) by the naive sample size (the number of observations) up to a given period. This gives the effective proportion of history up to a period that would be included if you were to use the analogy weights. It is a crude measure for similarity to all of recorded history. 
+## Impulse response functions of the three approaches
 
-![A proximity matrix](relevant_histories.pdf)
 
-# The historical solution estimated with HMC
 
 To come
-
-# Core inflation under both methodologies
-
-To come
-
-# US
-
-To come
-
-# An application to portfolio risk management during the GFC
-
-To come
-
-# Conclusion
-
-To come
-
-
-
-
-# Download the real-time data from FRED; generate some visualisations
-DONE
-
-# Write a forecaster for the time varying parameter model 
-not done
-
-# Back-test the three approaches: Regular VAR, TVP VAR, and Analogy Weighted VAR. DONE TWO
-
-
-# Another cool thing to do would be to look at the Volker deflation DONE
-
-# Do everything with realtime data from ALFRED. DONE
-
-# Relagtive likelihood of forecast error
-
-To do if time permitting
-# Impulse response functions for a monetary policy shift at various times. 
-
-# Calculate log of the proximity scores
-
-
-# Cutting room floor: 
-
-### Old intro: 
-
-Time-varying parameter models are commonly used in applied macroeconomics as a means of capturing unmodelled structural changes in the macroeconomy. There are three commonly used methods of generating time-variation in parameter estimates. The first is what I term an "unprincpled" approach, which includes adjusting the amount of history included in the training set, either explicitly or by weighting. A second, more principled approach is Markov switching, where an economy may flip between states, each associated with a set of parameters. Another principled approach preferred by most practitioners is to model the paremeters directly as an unobserved state that is allowed to vary over time. 
-
-This paper presents a "semi-principled approach", a weighting methodology in which parameters are informed to a greater degree by time-periods similar a period chosen by the analyst---normally the last period. In doing so, the method captures the simplicity of a weighting approach, but one in which parameters from similar states of the world have similar values. Because there are far fewer parameters to estimate, it does not suffer from the overparameterisation issues associated with proper time-varying parameter model, and so is less reliant on the selection of priors.
-
-The method has an important biproduct: in periods without historical precedent, the method provides very low weights on historical observations. This feature, coupled with Bayesian techniques that provide fairly tight priors on large variance parameters, allows the model to express *ignorance* when it is asked to learn from histories quite dissimilar to the present. There is little value in giving undue weight to irrelevant histories. 
-
-The method is novel in that it uses the Random Forest, a tool from machine learning, in order to generate the weighting vector. This tool is extremely popular in applied classification and prediction tasks, though has not been widely applied to inferential econometrics. This paper is an attempt to bridge the gap.
-
-
- With the term interpreted loosely, these approaches are *purer*, in that both the data and parameters come from a generative model. Yet in most applications, time-variation in the parameters is assumed to come from (possibly non-stationary) unmodelled structural change. 

@@ -31,16 +31,24 @@ dataset.q <- dataset %>% group_by(quarter = as.yearqtr(Date) %>% as.Date) %>%
 
 dat1 <- dataset.q[,-1]
 
-rf1 <- randomForest(Unemp ~ ., data = dat1, proximity = T, ntree = 5000, nodesize = 40, oob.prox = T)
-rf2 <- randomForest(CPI ~ ., data = dat1, proximity = T, ntree = 5000, nodesize = 40, oob.prox = T)
-rf3 <- randomForest(r ~ ., data = dat1, proximity = T, ntree = 5000, nodesize = 40, oob.prox = T)
+dss <- dataset.q %>%
+  mutate(Unemp.1 = lag(Unemp),
+         Unemp.2 = lag(Unemp, 2),
+         CPI.1 = lag(CPI),
+         CPI.2 = lag(CPI, 2),
+         r.1 = lag(r),
+         r.2 = lag(r, 2)) %>% filter(!is.na(CPI.2))
+
+rf1 <- randomForest(Unemp ~ Unemp.1 + Unemp.2 + CPI.1 + CPI.2 + r.1 + r.2, data = dss, proximity = T, ntree = 5000, nodesize = 40 , oob.prox = T)
+rf2 <- randomForest(CPI ~ Unemp.1 + Unemp.2 + CPI.1 + CPI.2 + r.1 + r.2, data = dss, proximity = T, ntree = 5000, nodesize = 40, oob.prox = T)
+rf3 <- randomForest(r ~ Unemp.1 + Unemp.2 + CPI.1 + CPI.2 + r.1 + r.2, data = dss, proximity = T, ntree = 5000, nodesize = 40, oob.prox = T)
 proxmat <- (rf1$proximity + rf2$proximity + rf3$proximity)/3
 proxmat[upper.tri(proxmat, diag  = T)] <- 0
 
-weights <- data.frame(w = proxmat[nrow(proxmat),], d = dataset.q$quarter)
+weights <- data.frame(w = c(0,0,proxmat[nrow(proxmat),]), d = dataset.q$quarter)
 proxmat <- as.data.frame(proxmat)
-proxmat$Date <- dataset.q$quarter
-names(proxmat)[-length(names(proxmat))] <- paste0("X", dataset.q$quarter)
+proxmat$Date <- dataset.q$quarter[-1:-2]
+names(proxmat)[-length(names(proxmat))] <- paste0("X", dataset.q$quarter[-1:-2])
 
 proxmat.m <- melt(proxmat, id = "Date")
 proxmat.m$variable <- as.Date(gsub("X", "", proxmat.m$variable))
@@ -48,16 +56,17 @@ proxmat.m$variable <- as.Date(gsub("X", "", proxmat.m$variable))
 # Plot of analogies -------------------------------------------------------
 
 
+png("analogy_matrix.png")
 proxmat.m %>% ggplot(aes(x = Date, y = variable, fill = value)) + geom_tile() +
   scale_fill_gradient(low = "white", high = "red", "Analogy score\n") +
-  theme_bw(base_size = 14) +
+  theme_bw(base_size = 11) +
   xlab("Date") +
   ylab("Comparison Date") +
   scale_x_date(expand = c(0,0)) +
   scale_y_date(expand = c(0,0)) +
   coord_flip() +
   ggtitle("How good an analogy for 'Date'\nis 'Comparison Date'?\n")
-
+dev.off()
 
 # Plot of proportion of history analogous ---------------------------------
 proxmat <- (rf1$proximity + rf2$proximity + rf3$proximity)/3
@@ -66,15 +75,16 @@ proxmat.d[lower.tri(proxmat.d, diag = T)] <- NA
 
 prop.history <- apply(proxmat.d, 2, function(x) sum(x, na.rm = T)/sum(!is.na(x)))[-1]
 
-prop.history <- data.frame(Date = dataset.q$quarter[-1:-2], prop.history)
+prop.history <- data.frame(Date = dataset.q$quarter[-1:-4], prop.history)
 
+png("relevant_histories.png")
 prop.history %>% filter(Date>"1970-01-01") %>% ggplot(aes(x = Date, prop.history))+ 
   geom_line(size = 1) +
-  theme_bw(base_size = 14) +
+  theme_bw(base_size = 11) +
   ylab("Proportion") +
   scale_y_continuous(expand = c(0,0), limits = c(0,0.5)) +
   ggtitle("At each point in time, how much recorded economic\nhistory was relevant?")
-  
+dev.off()
 # Analogies ---------------------------------------------------------------
 
 
