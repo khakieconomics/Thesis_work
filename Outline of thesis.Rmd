@@ -4,6 +4,8 @@ title: How would an historian do time-series econometrics? Analogy weighting usi
 author: "Jim Savage"
 date: "7 July 2015"
 output: pdf_document
+fontsize: 12pt
+linestretch: 1.5
 ---
 
 # Abstract
@@ -23,13 +25,13 @@ A second class of strategies includes all historical data, but explicitly models
 
 How would historians build econometric models? The 'historianist' approach proposed in this paper is to analogise today with periods of history that have similar characteristics, and draw inference based on those analogies. There is a large problem in applying this historianist approach formally to time-series models: how can we determine which time-periods are "similar" to today? Estimating similarity typically involves selecting a metric with which we can measure the difference between periods. But how much weight should be given to the various dimensions? And should these weights change over time? Perhaps one variable is very important in some states of the world and not in others.
 
-This paper describes an algorithm that makes use of a popular method from machine learning to construct "analogy weights". These weights can be used to help regression models learn more from similar periods of history. The weights have two important features. First, their construction does not make use of a metric; a variable's importance to the weight can vary with states of the world. Second, there are automated out-of-sample robustness checks in the construction of the weights, and so weights represent only similarities on dimensions that appear to have a robust relationship to the dependent variable. When used with Bayesian regression models  with informative priors on (large) residual variance parameters, this algorithm can help increase uncertainty when the model is being asked to generate projections in a world that is not similar to the world used to estimate the model. The algorithm also requires very few tuning parameters, making it a useful turn-key solution to many time-series modelling tasks. 
+This paper makes two contributions. First, it reviews recent literature and presents a model that provides guidance on what variables are likely to be useful in determining "relevant" histories. Second, it describes an algorithm that makes use of a popular method from machine learning to construct "analogy weights". These weights can be used to help regression models learn more from similar periods of history. The weights have two important features. First, their construction does not make use of a metric; a variable's importance to the weight can vary with states of the world. Second, there are automated out-of-sample robustness checks in the construction of the weights, and so weights represent only similarities on dimensions that appear to have a robust relationship to the dependent variable. When used with Bayesian regression models  with informative priors on (large) residual variance parameters, this algorithm can help increase uncertainty when the model is being asked to generate projections in a world that is not similar to the world used to estimate the model. The algorithm also requires very few tuning parameters, making it a useful turn-key solution to many time-series modelling tasks. 
 
-The paper presents two applations of the algorithm. The first is in estimating "core" inflation---the permanent component of inflation, using a Vector Autoregression (VAR) with analogy weights. The second is an application to portfolio risk management, in particular estimating Value at Risk (VaR) for a small portfolio of stocks during the Global Financial Crisis. This second application illustrates how researchers can easily incorporate analogy weights into multivatiate GARCH models. The applications show that using analogy scores generates the greatest benefit in the first few periods following an unprecedented regime change. 
+The paper also presents two applations of the algorithm. The first is in estimating "core" inflation---the permanent component of inflation, using a Vector Autoregression (VAR) with analogy weights. The second is an application to portfolio risk management, in particular estimating Value at Risk (VaR) for a small portfolio of stocks during the Global Financial Crisis. This second application illustrates how researchers can easily incorporate analogy weights into multivatiate GARCH models. The applications show that using analogy scores generates the greatest benefit in the first few periods following an unprecedented regime change. 
 
 # 1: Historical analogies as guides
 
-The premise of analogy weighting is that analogous histories provide more information about the structure of contemporaneous economic relationships than do irrelevant histories. Why should this be the case? The channel I propose is that economic agents' optimal decisions are conditional on a set of constraints, and the full set of constraints needn't bind all the time. Histories that are similar in terms of which constraints are "most binding" will be those whose agents face similar trade-offs. Under an assumption of static preferences, agents' behaviour will be more similar during analogous periods than during irrelevant periods (during which agents face entirely different constraints). 
+The premise of analogy weighting is that periods of history that are similar to today may provide more information about the structure of contemporaneous economic relationships than less similar periods of history. Why should this be the case? The channel I propose is that economic agents' optimal decisions are conditional on a set of constraints, and the full set of constraints needn't bind all the time. Histories that are similar in terms of which constraints are "most binding" will be those whose agents face similar trade-offs. Under an assumption of static preferences, agents' behaviour will be more similar during analogous periods than during irrelevant periods (during which agents face entirely different constraints). 
 
 Is this channel plausible? Kiyotaki and Moore (1997, 2000) note that in credit markets, a fall in asset prices can make collateral constraints bind, reducing asset purchases and so aplifying credit cycles. In Bianchi (2010), borrowers of foreign currency face similar collateral constraints when their home currency depreciates against the creditor's, reducing the availability of foreign credit and thus making exchange rate depreciations contractionary. The model presented below suggests that the density of projects' internal rates of return is not uniform (and may have little mass at the current discount rate), so that changes in the discount rate can produce non-linear responses investment decisions. These models all suggest that any two histories will be analogous for potentially many reasons, which complicates the estimation of analogy scores. 
 
@@ -37,11 +39,40 @@ Another way of stating the hypothesis is that the parameters of the data generat
 
 In practice, the distance between histories according to their constraining variables (here called the characteristic space) requires the specification of a distance measure---normally a fixed metric. One approach would be to normalise all characteristics and take the Euclidian distance between all pairwise observations. But this would assume that each characteristic is equally meaningful in determining the relevant analogy---a problem if different variables act as "more binding" constraints through history. More complex metrics could allow characteristics to be weighted, yet for as long as the distance is based on a fixed metric, characteristic importance weights would not vary across states of the world. 
 
-The algorithm proposed makes use of the Random Forest (due to Brieman 2001), a tool from machine learning. A biproduct of fitting a Random Forest is a proximity matrix, which for all pairwise observations provides a measure of *proximity* in the Random Forest space. The main benefit of this tool is that the proximity 
+The algorithm proposed makes use of the Random Forest (due to Brieman 2001), a tool from machine learning. A biproduct of fitting a Random Forest is a proximity matrix, which for all pairwise observations provides a measure of *proximity* in the Random Forest space. The main benefit of this tool is that the distance measure is the distance between observations *in terms of the variables that matter to the prediction of the outcome variable, and the importance of each variable can vary over time*. 
 
 
 ## A model of discount rate thresholds
 
+Interest rates are an important constraint on economic activity. But do they always bight? The model below suggests that two variables---the quality of product designs and the extent of firms' markets---affect the distribution of "choke-point" discount rates (rates above which projects do not go ahead). Consequently there may be ranges of possible interest rates for which interest rates have almost no effect on investment decisions, and other ranges that profoundly impact investment. 
+
+An economy is made up of $i\in N$ firms generating a unique product $X_{i}$ using capital $K_{i}$ and a design $A_{i}$. Although there is a continuum of designs across product types, there is only one design available for each product, and so firm $i$ uses a fixed $A_{i}$. All firms are local monopolies, and face an inverse demand curve $P(X_{i}|S_{i})$, where $S_{i}$ is the size of their market. The demand curve is downward sloping and smaller markets have a steeper demand curve. The design used in production is non-rival, and so firms have increasing returns to scale. Both designs and product-specific market size are distributed randomly across firms. Designs are generated in a foreign competitive market, and so the cost of design $i$, $C_{i}$ is the marginal cost and entirely exogenous. Capital has some rental rate $r$.
+
+The production technology for firm $i$ is $X_{i} = A_{i}^{\phi}K_{i}^{\alpha}$ with $\phi\geq 1$ and $0<\alpha<1$. The firm maximises profits (denominated in terms of an outside good)
+
+\[
+\Pi_{i} = A_{i}^{\phi}K_{i}^{\alpha} - C_{A}A_{i} - rK_{i}
+\]
+
+Taking derivatives with respect to capital yields the first order condition
+
+\[
+\alpha A_{i}^{\phi}K_{i}^{\alpha-1}(P(X_{i}|S_{i}) + A_{i}^{\phi}K_{i}^{\alpha}P^{'}(X_{i}|S_{i})) = r
+\]
+
+Where the term in the brackets is the marginal revenue for a given market size, and the term in front of the brackets is the marginal product of capital. The firm simply sets marginal revenues to marginal costs. 
+
+As for each product there is only one design, the marginal product of designs is not defined. That is, the firm can only choose between using the design and not using the design: $A_{i}\in \{0, \bar{A}_{i}\}$. This means that firm profits have two cases. The first is when $A_{i} = 0$, in which case there are no profits. The second case is when $A_{i} = \bar{A}_{i}$. In this case, profits are
+
+\[
+\Pi_{i} = \bar{A}_{i}^{\phi}K_{i}^{\alpha} - C_{A}\bar{A}_{i} - MPK_{i}(\bar{A}_{i})MR(S_{i})K_{i}
+\]
+
+in which case the firm operates so long as 
+
+\[
+C_{i} \leq \bar{A}_{i}^{\phi-1}K_{i}^{\alpha} - \frac{MPK_{i}(\bar{A}_{i})MR(S_{i})K_{i}}{\bar{A}_{i}}
+\]
 
 
 ## Introducing Random Forests
@@ -120,7 +151,7 @@ With a single terminal node in each tree, all observations will be trivially pro
 
 Choosing the optimal terminal node size will involve making a trade-off between including potentially irrelevant (or misleading) histories for larger values of `modesize`, and having more uncertainty in estimates for smaller values of `nodesize`. The choice should be influenced by the number of parameters in the economic model being estimated, so that on average there are a sufficient number of effective observations (ie. the average weight multiplied by the total number of observations) to provide guidance for parameter values. 
 
-```{r, echo = F, message = F, warning = F, cache = T}
+```{r, echo = F, message = F, warning = F}
 
 library(randomForest); library(dplyr); library(ggplot2); library(reshape2)
 load("quarterly_data.RData")
