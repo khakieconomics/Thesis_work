@@ -128,7 +128,8 @@ tvp_mc <- mclapply(1:3, mc.cores = 3, function(i){
 tvp_mc1 <- sflist2stanfit(tvp_mc)
 launch_shinystan(tvp_mc1)
 
-
+test <- e3[[1]]
+shinystan::launch_shinystan(test)
 yhat <- rstan::extract(tvp_mc1, pars = "Yhat", permuted= FALSE)
 yhat <- do.call(rbind, lapply(1:3, function(i) yhat[,i,])) %>% as.data.frame
 

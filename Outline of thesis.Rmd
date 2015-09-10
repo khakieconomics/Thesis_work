@@ -23,25 +23,32 @@ A second class of strategies includes all historical data, but explicitly models
 
 How would historians build econometric models? The 'historianist' approach proposed in this paper is to analogise today with periods of history that have similar characteristics, and draw inference based on those analogies. There is a large problem in applying this historianist approach formally to time-series models: how can we determine which time-periods are "similar" to today? Estimating similarity typically involves selecting a metric with which we can measure the difference between periods. But how much weight should be given to the various dimensions? And should these weights change over time? Perhaps one variable is very important in some states of the world and not in others.
 
-This paper describes an algorithm that makes use machine learning to estimate "analogy weights". These weights can be used to help regression models learn more from similar periods of history. The weights have two important features. First, they are metric-free; a variable's importance to the weight can vary with states of the world. Second, there are automated out-of-sample robustness checks in the construction of the weights, and so weights represent only similarities on dimensions that appear to have a robust relationship to the dependent variable. When used in a Bayesian framework with informative priors on (large) residual variance parameters, this algorithm can help increase uncertainty when the model is being asked to generate projections in a world that is not similar to the world used to estimate the model. The algorithm also requires very few tuning parameters, making it a useful turn-key solution to many time-series modelling tasks. 
+This paper describes an algorithm that makes use of a popular method from machine learning to construct "analogy weights". These weights can be used to help regression models learn more from similar periods of history. The weights have two important features. First, their construction does not make use of a metric; a variable's importance to the weight can vary with states of the world. Second, there are automated out-of-sample robustness checks in the construction of the weights, and so weights represent only similarities on dimensions that appear to have a robust relationship to the dependent variable. When used with Bayesian regression models  with informative priors on (large) residual variance parameters, this algorithm can help increase uncertainty when the model is being asked to generate projections in a world that is not similar to the world used to estimate the model. The algorithm also requires very few tuning parameters, making it a useful turn-key solution to many time-series modelling tasks. 
 
-The paper presents two applations of the algorithm. The first is in estimating "core" inflation---the permanent component of inflation, using a Vector Autoregression (VAR) with analogy weights. The second is an application to portfolio risk management, in particular estimating Value at Risk (VaR) for a small portfolio of stocks during the Global Financial Crisis. This second application illustrates how researchers can easily incorporate analogy weights into multivatiate GARCH models.
+The paper presents two applations of the algorithm. The first is in estimating "core" inflation---the permanent component of inflation, using a Vector Autoregression (VAR) with analogy weights. The second is an application to portfolio risk management, in particular estimating Value at Risk (VaR) for a small portfolio of stocks during the Global Financial Crisis. This second application illustrates how researchers can easily incorporate analogy weights into multivatiate GARCH models. The applications show that using analogy scores generates the greatest benefit in the first few periods following an unprecedented regime change. 
 
-# Literature
+# 1: Historical analogies as guides
 
-The 
+The premise of analogy weighting is that analogous histories provide more information about the structure of contemporaneous economic relationships than do irrelevant histories. Why should this be the case? The channel I propose is that economic agents' optimal decisions are conditional on a set of constraints, and the full set of constraints needn't bind all the time. Histories that are similar in terms of which constraints are "most binding" will be those whose agents face similar trade-offs. Under an assumption of static preferences, agents' behaviour will be more similar during analogous periods than during irrelevant periods (during which agents face entirely different constraints). 
+
+Is this channel plausible? Kiyotaki and Moore (1997, 2000) note that in credit markets, a fall in asset prices can make collateral constraints bind, reducing asset purchases and so aplifying credit cycles. In Bianchi (2010), borrowers of foreign currency face similar collateral constraints when their home currency depreciates against the creditor's, reducing the availability of foreign credit and thus making exchange rate depreciations contractionary. The model presented below suggests that the density of projects' internal rates of return is not uniform (and may have little mass at the current discount rate), so that changes in the discount rate can produce non-linear responses investment decisions. These models all suggest that any two histories will be analogous for potentially many reasons, which complicates the estimation of analogy scores. 
+
+Another way of stating the hypothesis is that the parameters of the data generating process that describes the economy are determined by the values of variables constraining agents at a given time. Two economies with precicsely the same values for all economic time series (and their lags) will, in expectation, have the same data generating process. If this hypothesis is correct, then an analogy score that measures the distance between histories in their characteristic space will provide value for estimating the DGP.
+
+In practice, the distance between histories according to their constraining variables (here called the characteristic space) requires the specification of a distance measure---normally a fixed metric. One approach would be to normalise all characteristics and take the Euclidian distance between all pairwise observations. But this would assume that each characteristic is equally meaningful in determining the relevant analogy---a problem if different variables act as "more binding" constraints through history. More complex metrics could allow characteristics to be weighted, yet for as long as the distance is based on a fixed metric, characteristic importance weights would not vary across states of the world. 
+
+The algorithm proposed makes use of the Random Forest (due to Brieman 2001), a tool from machine learning. A biproduct of fitting a Random Forest is a proximity matrix, which for all pairwise observations provides a measure of *proximity* in the Random Forest space. The main benefit of this tool is that the proximity 
+
+
+## A model of discount rate thresholds
 
 
 
-# Outline of the algorithm
-
-
-
-# Introducing Random Forests
+## Introducing Random Forests
 
 The algorithm described below uses the proximity matrix of a random forest. This chapter describes how the Random Forest works, starting by explaining the Classification and Regression Tree method, and then describes how the proximity matrix is estimated. Readers with a familiarity with these methods may skip to the next chapter. 
 
-# CART
+## CART
 
 Classification and Regression Trees, known as CART and due to Brieman et al (1984), is a non-linear supervised recursive partitioning method. The aim of the technique is to partition a dataset according to the values of its covariates such that in each of the sub-groups the values of the dependent variable are more similar than in the parent group. The routine described below is a simplified version of the CART routine implemented in many software packages, though one that is much closer to the trees that make up a Random Forest. 
 
@@ -59,7 +66,7 @@ CART is a recursive algorithm, in that once a split has been estimated, the two 
 
 Once a tree is estimated, it can produce predicted values for a new observation *even if that observation is missing elements of* $X$. A new observation is simply "dropped" down the tree until it either reaches a terminal node (one with no child nodes) or until it reaches a node whose split is defined on a variable that is missing for the individual. Once it reaches this node, its predicted value for $y$ is simply the average $y$ for observations in that node in the training set. 
 
-# Random Forests
+## Random Forests
 
 While CART models are extremely easy to understand and visualise, they do tend to result in overfitting. They also do not capture smooth relationships well (there will only be as many distinct fitted values as there are terminal nodes). 
 
@@ -95,7 +102,7 @@ pmat = 1/P * pmat
 
 The $T$-th row of this matrix contains the proximities between period $T$ and all periods beforehand. This vector can be then used for weighting observations in a regression model. 
 
-# Tuning parameters
+## Tuning parameters
 
 Given the introduction of randomness in estimating the random forests that we use to estimate analogy weights, how sure should we be that a given proximity is meaningful? That is, is there a sense of "significance" of the proximity estimate? 
 
@@ -113,7 +120,7 @@ With a single terminal node in each tree, all observations will be trivially pro
 
 Choosing the optimal terminal node size will involve making a trade-off between including potentially irrelevant (or misleading) histories for larger values of `modesize`, and having more uncertainty in estimates for smaller values of `nodesize`. The choice should be influenced by the number of parameters in the economic model being estimated, so that on average there are a sufficient number of effective observations (ie. the average weight multiplied by the total number of observations) to provide guidance for parameter values. 
 
-```{r, echo = F, message = F}
+```{r, echo = F, message = F, warning = F, cache = T}
 
 library(randomForest); library(dplyr); library(ggplot2); library(reshape2)
 load("quarterly_data.RData")
@@ -221,7 +228,7 @@ library(ggplot2)
 coefplot + coord_flip()
 ```
 
-# An application to the estimation of core inflation
+# 3: An application to estimating core inflation
 
 Most central banks have a mandate to fight inflation, either explicitly, as with a numerical inflation target, or implicitly, as with the Fed's "just do it" approach (Mishkin, 2002). The inflation that is typically targetted is a notion of "core inflation", the inflation that would remain after self-correcting blips have been ignored. This is a latent quantity, and must be estimated. Various methods of estimating core inflation exist, such as removing volatile component price series, or by decomposing price series into factors using principle component analysis. 
 
@@ -235,6 +242,8 @@ Most central banks have a mandate to fight inflation, either explicitly, as with
 
 ## Impulse response functions of the three approaches
 
-
+# 4: An application to risk management
 
 To come
+
+# 5: Conclustion
