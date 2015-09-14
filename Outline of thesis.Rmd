@@ -41,40 +41,6 @@ In practice, the distance between histories according to their constraining vari
 
 The algorithm proposed makes use of the Random Forest (due to Brieman 2001), a tool from machine learning. A biproduct of fitting a Random Forest is a proximity matrix, which for all pairwise observations provides a measure of *proximity* in the Random Forest space. The main benefit of this tool is that the distance measure is the distance between observations *in terms of the variables that matter to the prediction of the outcome variable, and the importance of each variable can vary over time*. 
 
-
-## A model of discount rate thresholds
-
-Interest rates are an important constraint on economic activity. But do they always bight? The model below suggests that two variables---the quality of product designs and the extent of firms' markets---affect the distribution of "choke-point" discount rates (rates above which projects do not go ahead). Consequently there may be ranges of possible interest rates for which interest rates have almost no effect on investment decisions, and other ranges that profoundly impact investment. 
-
-An economy is made up of $i\in N$ firms generating a unique product $X_{i}$ using capital $K_{i}$ and a design $A_{i}$. Although there is a continuum of designs across product types, there is only one design available for each product, and so firm $i$ uses a fixed $A_{i}$. All firms are local monopolies, and face an inverse demand curve $P(X_{i}|S_{i})$, where $S_{i}$ is the size of their market. The demand curve is downward sloping and smaller markets have a steeper demand curve. The design used in production is non-rival, and so firms have increasing returns to scale. Both designs and product-specific market size are distributed randomly across firms. Designs are generated in a foreign competitive market, and so the cost of design $i$, $C_{i}$ is the marginal cost and entirely exogenous. Capital has some rental rate $r$.
-
-The production technology for firm $i$ is $X_{i} = A_{i}^{\phi}K_{i}^{\alpha}$ with $\phi\geq 1$ and $0<\alpha<1$. The firm maximises profits (denominated in terms of an outside good)
-
-\[
-\Pi_{i} = A_{i}^{\phi}K_{i}^{\alpha} - C_{A}A_{i} - rK_{i}
-\]
-
-Taking derivatives with respect to capital yields the first order condition
-
-\[
-\alpha A_{i}^{\phi}K_{i}^{\alpha-1}(P(X_{i}|S_{i}) + A_{i}^{\phi}K_{i}^{\alpha}P^{'}(X_{i}|S_{i})) = r
-\]
-
-Where the term in the brackets is the marginal revenue for a given market size, and the term in front of the brackets is the marginal product of capital. The firm simply sets marginal revenues to marginal costs. 
-
-As for each product there is only one design, the marginal product of designs is not defined. That is, the firm can only choose between using the design and not using the design: $A_{i}\in \{0, \bar{A}_{i}\}$. This means that firm profits have two cases. The first is when $A_{i} = 0$, in which case there are no profits. The second case is when $A_{i} = \bar{A}_{i}$. In this case, profits are
-
-\[
-\Pi_{i} = \bar{A}_{i}^{\phi}K_{i}^{\alpha} - C_{A}\bar{A}_{i} - MPK_{i}(\bar{A}_{i})MR(S_{i})K_{i}
-\]
-
-in which case the firm operates so long as 
-
-\[
-C_{i} \leq \bar{A}_{i}^{\phi-1}K_{i}^{\alpha} - \frac{MPK_{i}(\bar{A}_{i})MR(S_{i})K_{i}}{\bar{A}_{i}}
-\]
-
-
 ## Introducing Random Forests
 
 The algorithm described below uses the proximity matrix of a random forest. This chapter describes how the Random Forest works, starting by explaining the Classification and Regression Tree method, and then describes how the proximity matrix is estimated. Readers with a familiarity with these methods may skip to the next chapter. 
@@ -263,18 +229,25 @@ coefplot + coord_flip()
 
 Most central banks have a mandate to fight inflation, either explicitly, as with a numerical inflation target, or implicitly, as with the Fed's "just do it" approach (Mishkin, 2002). The inflation that is typically targetted is a notion of "core inflation", the inflation that would remain after self-correcting blips have been ignored. This is a latent quantity, and must be estimated. Various methods of estimating core inflation exist, such as removing volatile component price series, or by decomposing price series into factors using principle component analysis. 
 
-## Definition of core inflation
+## Core inflation
+
+Core inflation is a widely-used concept that lacks a formal definition or common tool for estimation, though two conceptual approaches are common.
+
+The first commonly-used approach is to model core inflation as being some latent factor that drives observed price series. For instance, Kapetanias (2002) defines core inflation as the first factor from a singular value decomposition of a large number of component price series. This is similar to the approach of Stock and Watson (2008), who model core inflation using a dynamic factor model that allows for structural breaks. Simpler variants of this philosophy work by filtering or smoothing price series, or by simply taking averages across price series that have had surprising components removed ad-hoc (see Quah and Vahey, 1995).
+
+A second, more principled approach is to model core inflation as being the permanent component of inflation, and therefore the part that has no effect on medium or long-run economic activity. Quah and Vahey (1995), Ribba (2003) and Cogley and Sargent (2001, 2005) take this approach. Cogley and Sargent’s (2001, 2005) method is to take core inflation to be the median of posterior predictive distributions for inflation into the distant future, using a Bayesian VAR with time-varying parameters. Quah and Vahey (1995) define core inflation to be the rate of inflation that has no impact on middle to long-run growth (estimated using a restricted classical VAR).
+
+There are problems with both approaches. The dynamic factor model approach does not typically discriminate between periods in which a signal variable contains a lot of information about the unobserved factor and when it contains less. It is also sensitive to the choice of variables used as inputs to the factors. By dropping or censoring signal series, ad-hoc approaches may not have this problem, however are both costly and atheoretic. In the second approach, an economic model must be built that provides the best possible (long-run) forecasts, given information available at the time the forecast is being made. Thus the problem in estimating core inflation using this approach is one of finding a good forecasting model, and parameterising it with the most relevant parameters for making forecasts. 
+
+In the demonstration below, I use the second approach to estimating core inflation. 
 
 ## Three approaches formally
+
+
+The three models 
 
 ## Data used
 
 ## Forecasting performance of the three approaches
-
-## Impulse response functions of the three approaches
-
-# 4: An application to risk management
-
-To come
 
 # 5: Conclustion
