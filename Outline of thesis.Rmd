@@ -179,8 +179,6 @@ The plot below shows the resulting proximity matrix. Along the vertical axis is 
 ![A proximity matrix](analogy_matrix.pdf)
 
 
-
-
 Interestingly, there appear to be three or four distinct states; the first being the post-GFC period in the top right. The second is a period of relative tranquility, roughly coinciding with the period between the early 1990s recession and the GFC, and the period before the stagflation of the 1970s. The third period, first making itself apparent in the late 1960s and continuing through until the early 1990s, is a less defined period. The emergence of fairly discrete states is interesting, given that the model is one of continuous states. 
 
 Another important feature of the proximity matrix is its ability to inform the user when the current state of the world is without precedent in terms of the variables that help to generate predictions. When the state of the world differs substantially to the sample, then perhaps the implications of models estimated from (a very different) history should be trusted less. 
@@ -215,7 +213,7 @@ w <- dss %>% ggplot(aes(x = CPI.1, y = r, weight = prox, size = prox, colour = a
 
 
 library(gridExtra)
-grid.arrange(uw, w)
+#grid.arrange(uw, w)
 ```
 
 
@@ -233,20 +231,68 @@ Most central banks have a mandate to fight inflation, either explicitly, as with
 
 Core inflation is a widely-used concept that lacks a formal definition or common tool for estimation, though two conceptual approaches are common.
 
-The first commonly-used approach is to model core inflation as being some latent factor that drives observed price series. For instance, Kapetanias (2002) defines core inflation as the first factor from a singular value decomposition of a large number of component price series. This is similar to the approach of Stock and Watson (2008), who model core inflation using a dynamic factor model that allows for structural breaks. Simpler variants of this philosophy work by filtering or smoothing price series, or by simply taking averages across price series that have had surprising components removed ad-hoc (see Quah and Vahey, 1995).
+The first commonly-used approach is to model core inflation as being some latent factor that drives observed price series. For instance, Kapetanias (2002) defines core inflation as the first factor from a singular value decomposition of a large number of component price series. This is similar to the approach of Stock and Watson (2008), who model core inflation using a dynamic factor model that allows for structural breaks. Simpler variants of this modelling philosophy work by filtering or smoothing price series, or by simply taking averages across price series that have had surprising components removed ad-hoc (see Quah and Vahey, 1995).
 
 A second, more principled approach is to model core inflation as being the permanent component of inflation, and therefore the part that has no effect on medium or long-run economic activity. Quah and Vahey (1995), Ribba (2003) and Cogley and Sargent (2001, 2005) take this approach. Cogley and Sargent’s (2001, 2005) method is to take core inflation to be the median of posterior predictive distributions for inflation into the distant future, using a Bayesian VAR with time-varying parameters. Quah and Vahey (1995) define core inflation to be the rate of inflation that has no impact on middle to long-run growth (estimated using a restricted classical VAR).
 
 There are problems with both approaches. The dynamic factor model approach does not typically discriminate between periods in which a signal variable contains a lot of information about the unobserved factor and when it contains less. It is also sensitive to the choice of variables used as inputs to the factors. By dropping or censoring signal series, ad-hoc approaches may not have this problem, however are both costly and atheoretic. In the second approach, an economic model must be built that provides the best possible (long-run) forecasts, given information available at the time the forecast is being made. Thus the problem in estimating core inflation using this approach is one of finding a good forecasting model, and parameterising it with the most relevant parameters for making forecasts. 
 
-In the demonstration below, I use the second approach to estimating core inflation. 
+In the demonstration below, I use the second approach to estimating core inflation. The demonstration makes use of three models: the first is a vanilla VAR with static parameters. The second is a time-varying parameter VAR based on the Cogley and Sargent's (2001) model. The third model is a vanilla VAR augmented to make use of analogy weights. 
 
 ## Three approaches formally
 
+### Vanilla VAR
 
-The three models 
+The model describes the co-movement between inflation, unemployment and the yield on short-term Treasuries, using a VAR(2). Taking $Y_{t}$ to be vector containing all variables, the first model is 
+
+\[
+\mathbf{Y_{t} = \mu + \beta_{1}Y_{t-1} + \beta_{2}Y_{t-2} + \epsilon_{t}}
+\]
+
+where $\mu$ and the $\beta$s are coefficients and the multivariate residual $\epsilon\sim\mathcal{MVN}(0, \Sigma)$. The parameters are estimated in a Bayesian framework, and have so-called "shrinkage" priors applied. These are all equal to 0 except the AR(1) terms, which have a prior of 1. The residual matrix $\Sigma$ is decomposed into a correlation matrix $\Omega$ and a scale vector $\tau$ such that 
+
+\[
+\Sigma = \mbox{diag}(\tau)\Omega\mbox{diag}(\tau)
+\]
+
+Under this setup, we give independent priors to the correlation and scale: the scale vectors have a prior distribution of $\tau\sim \mbox{Cauchy}_{+}(0, 2.5)$, and the correlation comes from the the LKJ distribution $\Omega \sim\mbox{lkj}(1.5)$. The LKJ distribution is a quite new distribution for correlation matrices that addresses some of the shortcomings of the popular Inverse-Wishart prior. The single parameter of the distribution dictates how much cross-correlation the distribution will produce; a value of 1 results in a uniform prior, while as this degrees of freedom parameter goes to infinity, the distribution collapses on the unit-diagonal correlation matrix. 
+
+I experimented with two approaches to modelling the covariance between the coefficients $\mu$, $\beta_1$ and $\beta_2$. Estimating a full covariance matrix would be too burdonsome given the amount of data available (it would involve estimating 210 parameters in the covariance matrix alone). One approach is to use a Littermann prior, which restricts $\Omega$ to be diagonal and specifies priors on $\tau$. Another approach is to estimate only the covariances within each "block"; that is, allow $\mu$ to have an estimated covariance, and likewise with the $\beta$s. This has the advantage that it only requires estimating 78 covariance parameters, and was the approach taken for this model. 
+
+The model is estimated using Hamiltonian Monte Carlo HMC, a technique that aims to draw directly from the posterior density using Hamiltonian mechanics. The particular implementation of HMC used is called the No U-Turn Sampler (Hoffman & Gelman, 2011), which is implemented in the stan modelling language. 
+
+While being fitted, the model calculates 1-year-ahead posterior predictions; these make use of both the uncertainty in the regression error and uncertainty in parameter estimates. These predictions form the basis for the model comparisons below. 
+
+### Augmented VAR
+
+The second model fitted takes exactly the same form as the VAR described above, with one difference: it is fitted using analogies weights. These weights are calculated as in Section XX above, using inflation, unemployment and the interest rate as the variables used to estimate analogies. These weights could be thought of as affecting the residual covariance of the VAR process:
+
+\[
+\Sigma_{\mbox{Analogy}} = \frac{1}{\mbox{analogy weight}_{t}}\hat{\Sigma}
+\]
+
+In this case, very small analogies would be expected to have very large residuals, and consequently not inform the coefficient estimates in any meaningful way. 
+
+### Time-varying parameter VAR
+
+The third model considered is a Time-varying-parameter VAR, similar to the one described in Cogley and Sargent (2001). The model is 
+
+\[
+\mathbf{Y_{t} = \mu_{t} + \beta_{1,t}Y_{t-1} + \beta_{2,t}Y_{t-2} + \epsilon_{t}}
+\]
+
+with the coefficients themselves evolving over time. Take $\theta = [\mu, \mbox{vec}\beta_1,\mbox{vec}\beta_2]'$, where the $\mbox{vec}$ operation stacks the a matrix in column-major order, then:
+
+\[
+\theta_{t} = \theta_{t-1} + \eta_{t}
+\]
+
+and $\eta\sim\mathcal{MVN}(0, \Sigma_{\eta})$. For identifiability, suitable structure must be put on $\Sigma_{\eta}$; in the work illustrated below, I assume that it is diagonal. 
+
 
 ## Data used
+
+The data used come from the vintage data releases contained in the ALFRED database. The data series are: The annualised CPI growth rate for major cities; the national non-farm unemployment rate; and the annualised yield on 90 day Treasuries. 
 
 ## Forecasting performance of the three approaches
 
