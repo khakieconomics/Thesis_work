@@ -33,11 +33,11 @@ The paper also presents two applations of the algorithm. The first is in estimat
 
 # 1: Historical analogies as guides
 
-The premise of analogy weighting is that periods of history that are similar to today may provide more information about the structure of contemporaneous economic relationships than less similar periods of history. Why may this be the case? This is a largely theoretical question left for further research. Yet the literature contains several appealing models that give some support to the notion that linear historical relationships may break down. These models typically involve constraints that only occasionally bind; on binding, the economy alters its state and behaves differently. Taking these models at face value would imply a limited number of states; these may be efficiently captured using Markov-switching models, so long as all states have been observed. If many such sometimes-binding constraints exist, and are defined on many variables, then continuous-state models may capture 
+The premise of analogy weighting is that periods of history that are similar to today may provide more information about the structure of contemporaneous economic relationships than less similar periods of history. This is not a new revelation---many theoretical models allow similar states of the world to emerge. Consequently, many empirical models explicitly model regime shifts. It is also not a revelation only relevant to econometrics. In the finance, machine learning and signal processing literature, similarities between time series are often used in predictive tasks. 
 
-Is this channel plausible? Kiyotaki and Moore (1997, 2000) note that in credit markets, a fall in asset prices can make collateral constraints bind, reducing asset purchases and so aplifying credit cycles. In Bianchi (2010), borrowers of foreign currency face similar collateral constraints when their home currency depreciates against the creditor's, reducing the availability of foreign credit and thus making exchange rate depreciations contractionary.
+Why may similar periods be more relevant to today? This is a largely theoretical question left for further research, yet the literature contains many appealing models that give some support to the notion that the behaviour of the economy may depend on the values of macroeconomic and market variables, particularly during crises. The most prominant example of this is in Kiyotaki and Moore (1997) in which exogenous technology shocks reduce the economic value of capital and so affect asset prices. Faced with binding collateral constraints, firms cease to be able to finance investment, and so reduce their asset purchases; this reduces asset prices and amplifies the cycle. Bianchi (2010) proposes a similar mechanism, in which borrowers of foreign currency face similar collateral constraints when their home currency depreciates against the creditor's, reducing the availability of foreign credit and thus making exchange rate depreciations contractionary. In Brunnermeier and Sannikov (2013), "expert" firms can absorb small shocks by adjusting payouts and re-building capital, but under large or serially correlated shocks these firms may be forced to stop investing or liquidate their capital. Consequently, the impact of a shock in their model depends on the sign and magnitude of the shock, and the economy's distance from its steady state. 
 
-Another way of stating the hypothesis is that the parameters of the data generating process that describes the economy are determined by the values of variables constraining agents at a given time. Two economies with precicsely the same values for all economic time series (and their lags) will, in expectation, have the same data generating process. If this hypothesis is correct, then an analogy score that measures the distance between histories in their characteristic space will provide value for estimating the DGP.
+While the channels by which these models transmit shocks vary, their implications for reduced-form modelling are similar: the behaviour of economic agents probably varies across states of the world, and there are potentially many such states. Regime-switching models as in Hamilton (1988) and as reviewed in Kuan (2002) attempt to model changes in  by allowing parameters to vary across (discrete) states. These models typically have a Markov process from which 
 
 In practice, the distance between histories according to their constraining variables (here called the characteristic space) requires the specification of a distance measure---normally a fixed metric. One approach would be to normalise all characteristics and take the Euclidian distance between all pairwise observations. But this would assume that each characteristic is equally meaningful in determining the relevant analogy---a problem if different variables act as "more binding" constraints through history. More complex metrics could allow characteristics to be weighted, yet for as long as the distance is based on a fixed metric, characteristic importance weights would not vary across states of the world. 
 
@@ -228,7 +228,7 @@ library(ggplot2)
 coefplot + coord_flip()
 ```
 
-# 3: An application to estimating core inflation
+# 2a: An application to estimating core inflation
 
 Most central banks have a mandate to fight inflation, either explicitly, as with a numerical inflation target, or implicitly, as with the Fed's "just do it" approach (Mishkin, 2002). The inflation that is typically targetted is a notion of "core inflation", the inflation that would remain after self-correcting blips have been ignored. This is a latent quantity, and must be estimated. Various methods of estimating core inflation exist, such as removing volatile component price series, or by decomposing price series into factors using principle component analysis. 
 
@@ -300,5 +300,16 @@ and $\eta\sim\mathcal{MVN}(0, \Sigma_{\eta})$. For identifiability, suitable str
 The data used come from the vintage data releases contained in the ALFRED database. The data series are: The annualised CPI growth rate for major cities; the national non-farm unemployment rate; and the annualised yield on 90 day Treasuries. 
 
 ## Forecasting performance of the three approaches
+
+# 2b: An application to portfolio risk management
+
+## Value at risk of a portfolio
+
+## A simple multivariate GARCH model and the analogy augmentation
+
+## Predictive performance
+
+## Performance of vanilla MGARCH and analogy-weighted MGARCH during crisis
+
 
 # 5: Conclustion
