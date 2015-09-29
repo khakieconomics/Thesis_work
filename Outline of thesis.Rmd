@@ -17,7 +17,7 @@ In building reduced-form empirical macroeconomic models for policy simulation an
 
 The method presented in this paper takes this one step further: I assert that if history provides a useful guide to reduced-form models, then more analogous histories should provide a better guide. Conversely, we should have little confidence in model projections being made if the current state of the world is markedly different from the world from which the model parameters were estimated. 
 
-How should we decide which histories are most relevant to today? The techniques most commonly used to address this problem aim to account for unmodelled structural change in the underlying data generating process. They come in varying degrees of complexity. 
+How should we decide which histories are most relevant to today? The techniques most commonly used to address this problem aim to account for unmodelled structural change in the underlying data generating process. They come in varying degrees of complexity.
 
 A naive or un-principled approach is to assume that co-movements between variables over the recent history are likely to emerge from a structural relationship that is relevant for the near future. Making such an assumption motivates techniques often used in industry and government work[cite: BASEL III], such as estimating models over a rolling window, or using exponential smoothing to give less weight to more distant historial observations. These techniques are easy to understand and implement, but it is not clear what an optimal window selection rule should be. 
 
@@ -29,7 +29,7 @@ This paper describes an algorithm that makes use of the Random Forest (Brieman, 
 
 The weights have two important features. First, their construction does not make use of a metric; a variable's importance to the weight can vary with states of the world. Second, there are automated out-of-sample robustness checks in the construction of the weights, and so weights represent only similarities on dimensions that appear to have a robust relationship to the dependent variable. The algorithm also requires very few tuning parameters, making it a useful turn-key solution to many time-series modelling tasks. 
 
-The paper also presents two applations of the algorithm. The first is in estimating "core" inflation---the permanent component of inflation, using a Vector Autoregression (VAR) with analogy weights. The second is an application to portfolio risk management, in particular estimating Value at Risk (VaR) for a small portfolio of stocks during the Global Financial Crisis. This second application illustrates how researchers can easily incorporate analogy weights into multivatiate GARCH models. The applications show that using analogy scores generates the greatest benefit in the first few periods following an unprecedented regime change. 
+The paper also presents two applations of the algorithm. The first is in estimating "core" inflation---the permanent component of inflation, using a Vector Autoregression (VAR) with analogy weights. The second is an application to portfolio risk management, in particular estimating a conditional volility model for a small portfolio of stocks during the Global Financial Crisis. This second application illustrates how researchers can easily incorporate analogy weights into multivatiate GARCH models (below, my own augmentation of the CCC-GARCH method of Bollerslev (1990)). The applications show that using analogy scores generates the greatest benefit in the first few periods following an unprecedented regime change. 
 
 # 1: Historical analogies as guides
 
@@ -37,9 +37,15 @@ The premise of analogy weighting is that periods of history that are similar to 
 
 Why may similar periods be more relevant to today? This is a largely theoretical question left for further research, yet the literature contains many appealing models that give some support to the notion that the behaviour of the economy may depend on the values of macroeconomic and market variables, particularly during crises. The most prominant example of this is in Kiyotaki and Moore (1997) in which exogenous technology shocks reduce the economic value of capital and so affect asset prices. Faced with binding collateral constraints, firms cease to be able to finance investment, and so reduce their asset purchases; this reduces asset prices and amplifies the cycle. Bianchi (2010) proposes a similar mechanism, in which borrowers of foreign currency face similar collateral constraints when their home currency depreciates against the creditor's, reducing the availability of foreign credit and thus making exchange rate depreciations contractionary. In Brunnermeier and Sannikov (2013), "expert" firms can absorb small shocks by adjusting payouts and re-building capital, but under large or serially correlated shocks these firms may be forced to stop investing or liquidate their capital. Consequently, the impact of a shock in their model depends on the sign and magnitude of the shock, and the economy's distance from its steady state. 
 
-While the channels by which these models transmit shocks vary, their implications for reduced-form modelling are similar: the behaviour of economic agents probably varies across states of the world, and there are potentially many such states. Regime-switching models as in Hamilton (1988) and as reviewed in Kuan (2002) attempt to model changes in  by allowing parameters to vary across (discrete) states. These models typically have a Markov process from which 
+While the channels by which these models transmit shocks vary, their implications for reduced-form modelling are similar: the behaviour of economic agents probably varies across states of the world, and there are potentially many such states. Regime-switching models as in Hamilton (1988, 1989) and as reviewed in Kuan (2002) attempt to model changes in  by allowing parameters to vary across (discrete) states. These models typically have a Markov process that allows conditional switching of states. These models have been applied in a variety of settings (see Hamilton 2005), yet like most empirical techniques they struggle with "new" states. 
 
-In practice, the distance between histories according to their constraining variables (here called the characteristic space) requires the specification of a distance measure---normally a fixed metric. One approach would be to normalise all characteristics and take the Euclidian distance between all pairwise observations. But this would assume that each characteristic is equally meaningful in determining the relevant analogy---a problem if different variables act as "more binding" constraints through history. More complex metrics could allow characteristics to be weighted, yet for as long as the distance is based on a fixed metric, characteristic importance weights would not vary across states of the world. 
+As the number of potential states of the economy grows, it makes more sense to use continuous-state models, as described in Koop and Korobilis (2013). Under this approach, rather than having a set of parameters for each state of the economy, the "state" of the economy *is* the set of parameters; these are allowed to vary over time. A common implementation of these models, as in Cogley and Sargent (2001, 2005) and Koop et al (2009) models parameters as changing over time in a random walk process, rather than modelling parameter values as responding directly to changes in exogenous variables. Such a modelling choice is not necessary, but has been a preferred approach since the Minnesota Prior popularised by Doan Litterman and Sims (1984). 
+
+These existing methods offer some real benefits to a researcher modelling unobserved structural changes. Yet the models have drawbacks. Like typical reduced-form models, discrete regime-switching models are unable to generate states that have not been observed. If the true data generating process has not revealed all her states, these methods are prone to inductive errors (Popper, 1934). In contrast, continuous-state models give positive weight to the possibility of as-yet unobserved states. But they are hard to implement, and tend to be very richly parameterised. A large number of parameters relative to the number of observations requires that informative priors must be used to estimate continuous-state models. 
+
+The algorithm described below aims to overcome the difficulties associated with both regime-switching models and continuous-state models. It does so at a cost of moving away from a generative model. The method works by building a weighting vector that relates one period in history (normally today) with all other periods in observed history. This score serves as a "distance between histories", and is defined on the characteristics of the economy or system at that point in time. 
+
+In practice, the distance between histories according to their characteristics would normally require the specification of a distance measure---normally a fixed metric. One approach would be to normalise all characteristics and take the Euclidian distance between all pairwise observations. But this would assume that each characteristic is equally meaningful in determining the relevant analogy---a problem if different variables act as "more binding" constraints through history. More complex metrics could allow characteristics to be weighted, yet for as long as the distance is based on a fixed metric, characteristic importance weights would not vary across states of the world. 
 
 The algorithm proposed makes use of the Random Forest (due to Brieman 2001), a tool from machine learning. A biproduct of fitting a Random Forest is a proximity matrix, which for all pairwise observations provides a measure of *proximity* in the Random Forest space. The main benefit of this tool is that the distance measure is the distance between observations *in terms of the variables that matter to the prediction of the outcome variable, and the importance of each variable can vary over time*. The algorithm is a time-series generalisation of the approach taken by Miller Savage and Tan (forthcoming), in which Random Forest proximities are used to construct a matching estimator that is less sensitive to the Smith and Todd critique than is Propensity Score Matching. 
 
@@ -126,7 +132,7 @@ Choosing the optimal terminal node size will involve making a trade-off between 
 library(randomForest); library(dplyr); library(ggplot2); library(reshape2)
 load("quarterly_data.RData")
 
-dss <- dat1 %>% as.data.frame %>%
+dss <- dss %>% as.data.frame %>%
   mutate(Unemp.1 = lag(Unemp),
          Unemp.2 = lag(Unemp, 2),
          CPI.1 = lag(CPI),
@@ -195,6 +201,7 @@ A metric to evaluate the similarity of the current state to recorded history is 
 As a small illustration of how analogy weights impact parameter estimates and confidence bounds can be seen
 
 ```{r, message=F, echo = F}
+library(dplyr)
 dss$prox <- prox
 
 uw <- dss %>% ggplot(aes(x = CPI.1, y = r)) +
@@ -301,11 +308,20 @@ The data used come from the vintage data releases contained in the ALFRED databa
 
 ## Forecasting performance of the three approaches
 
+
 # 2b: An application to portfolio risk management
 
-## Value at risk of a portfolio
+Portfolio risk managers are tasked with holding sufficient cash to insure that asset purchases and withdrawals from the portfolio can be paid for even when asset prices fall. This requires generating estimates of Value At Risk (VaR), a measure defined as the minimum loss expected in some event that should occur with a given frequency over a period. For example, if a portfolio has $5M VaR over 1 day at 95%, this would mean that not more than one in twenty days should involve losses greater than $5M. 
 
-## A simple multivariate GARCH model and the analogy augmentation
+Due to volitility clustering (Mandlebrot 1963), the VaR of a portfolio will change over time. More volatile periods will imply a greater chance of loss, and so VaR will increase. A good volatility model can help managers hold liquidity at times that are most likely to be most volatile. GARCH-style models (due to Bollerslev 1986) are a common choice for this task. 
+
+The model described below is an augmentation of the CCC-GARCH model of Bollerslev (1991). It makes two improvements. First, it allows for analogy weighting. The practical impact of allowing analogy weights is to give time-variation to the correlation matrix, so that the model will have similar correlations between asset returns across similar states of history. This sits in contrast to other popular methods like VC-GARCH of Tse and Tsui (2002) and DCC-GARCH of Engle (2002), within which correlations react to recent comovements. 
+
+The second big improvement is in using an LKJ prior for the correlation matrix with a small degrees of freedom parameter. This has the effect of "switching off" the model when the world alters states to a new (unprecedented) state, imposing large correlations between returns and so increasing VaR. It does this because an unprecendented state has little in common with historical observations, and so the model draws more inference from the prior. Because the LKJ prior is a uniform correlation matrix when the degrees of freedom parameter is 1, relying more on the prior implies assuming more correlation.
+
+## A modern CCC-GARCH model and the analogy augmentation
+
+
 
 ## Predictive performance
 
