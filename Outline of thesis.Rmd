@@ -315,11 +315,29 @@ Portfolio risk managers are tasked with holding sufficient cash to insure that a
 
 Due to volitility clustering (Mandlebrot 1963), the VaR of a portfolio will change over time. More volatile periods will imply a greater chance of loss, and so VaR will increase. A good volatility model can help managers hold liquidity at times that are most likely to be most volatile. GARCH-style models (due to Bollerslev 1986) are a common choice for this task. 
 
-The model described below is an augmentation of the CCC-GARCH model of Bollerslev (1991). It makes two improvements. First, it allows for analogy weighting. The practical impact of allowing analogy weights is to give time-variation to the correlation matrix, so that the model will have similar correlations between asset returns across similar states of history. This sits in contrast to other popular methods like VC-GARCH of Tse and Tsui (2002) and DCC-GARCH of Engle (2002), within which correlations react to recent comovements. 
+The model described below is an augmentation of the CCC-GARCH model of Bollerslev (1991). It makes two improvements. First, it allows for analogy weighting. The practical impact of allowing analogy weights is to give time-variation to the correlation matrix, so that the model will have similar correlations between asset returns across similar states of history. This sits in contrast to other popular methods like VC-GARCH of Tse and Tsui (2002) and DCC-GARCH of Engle (2002), in which correlations react to recent comovements. 
 
-The second big improvement is in using an LKJ prior for the correlation matrix with a small degrees of freedom parameter. This has the effect of "switching off" the model when the world alters states to a new (unprecedented) state, imposing large correlations between returns and so increasing VaR. It does this because an unprecendented state has little in common with historical observations, and so the model draws more inference from the prior. Because the LKJ prior is a uniform correlation matrix when the degrees of freedom parameter is 1, relying more on the prior implies assuming more correlation.
+The second big improvement is an LKJ prior for the correlation matrix with a small degrees of freedom parameter. This has the effect of "switching off" the model when the world alters states to a new (unprecedented) state, imposing large correlations between returns, increasing VaR. It does this because an unprecendented state has little in common with historical observations, and so the model draws more inference from the prior. Because the LKJ prior is a uniform correlation matrix when the degrees of freedom parameter is 1, relying more on the prior implies assuming more correlation between observations. 
 
 ## A modern CCC-GARCH model and the analogy augmentation
+
+Multivariate GARCH models take the form 
+
+\[
+r_{t} = \mu + \Sigma_{t}^{\frac{1}{2}}\eta_{t}
+\]
+
+where $r_{t}$ is a vector of securities' log-returns between period $t-1$ and $t$, $\mu$ is a vector of mean returns, $\eta_{t}$ is a vector of white-noise, and $\Sigma_{t}$ is a time-varying conditional covariance matrix. The many multivariate GARCH models provide different specifications for the time-variation in the covariance matrix. One popular method, the CCC-GARCH of Bollerslev (1990) models covariance by decomposing the covariance into a dynamic scale vector $\tau_{t}$ and static correlation matrix $\Omega$.
+
+\[
+\Sigma_{t} = \mbox{diag}(\tau_{t})\Omega\mbox{diag}(tau_{t})
+\]
+
+The scale terms are then given a GARCH specification: 
+
+\[
+\tau_{t} = c + \mbox{diag}(A)\tau_{t-1} + \mbox{diag}(B)\r_{t-1}
+\]
 
 
 
