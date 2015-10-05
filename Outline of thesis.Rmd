@@ -45,15 +45,15 @@ These existing methods offer some real benefits to a researcher modelling unobse
 
 The algorithm described below aims to overcome the difficulties associated with both regime-switching models and continuous-state models. It does so at a cost of moving away from a generative model. The method works by building a weighting vector that relates one period in history (normally today) with all other periods in observed history. This score serves as a "distance between histories", and is defined on the characteristics of the economy or system at that point in time. 
 
-In practice, the distance between histories according to their characteristics would normally require the specification of a distance measure---normally a fixed metric. One approach would be to normalise all characteristics and take the Euclidian distance between all pairwise observations. But this would assume that each characteristic is equally meaningful in determining the relevant analogy---a problem if different variables act as "more binding" constraints through history. More complex metrics could allow characteristics to be weighted, yet for as long as the distance is based on a fixed metric, characteristic importance weights would not vary across states of the world. 
+In practice, the distance between histories according to their characteristics would normally require the specification of a distance measure---normally a fixed metric. One approach would be to normalise all characteristics and take the Euclidian distance between all pairwise observations. But this would assume that each characteristic is equally meaningful in determining the relevant analogy---a problem if the importance of economic variables differ. More complex metrics could allow characteristics to be weighted, yet for as long as the distance is based on a fixed metric, characteristic importance weights would not vary across states of the world. 
 
-The algorithm proposed makes use of the Random Forest (due to Brieman 2001), a tool from machine learning. A biproduct of fitting a Random Forest is a proximity matrix, which for all pairwise observations provides a measure of *proximity* in the Random Forest space. The main benefit of this tool is that the distance measure is the distance between observations *in terms of the variables that matter to the prediction of the outcome variable, and the importance of each variable can vary over time*. The algorithm is a time-series generalisation of the approach taken by Miller Savage and Tan (forthcoming), in which Random Forest proximities are used to construct a matching estimator that is less sensitive to the Smith and Todd critique than is Propensity Score Matching. 
+The algorithm proposed makes use of the Random Forest (due to Brieman 2001), a tool from machine learning. A biproduct of fitting a Random Forest is a proximity matrix, which for all pairwise observations provides a measure of proximity in the Random Forest space. The main benefit of this tool is that the distance measure is the distance between observations *in terms of the variables that matter to the prediction of the outcome variable, and the importance of each variable can vary over time*. The algorithm is a time-series generalisation of the approach taken by Miller Savage and Tan (forthcoming), in which Random Forest proximities are used to construct a matching estimator that is less sensitive to the Smith and Todd critique than is Propensity Score Matching. 
 
 ## Introducing Random Forests
 
-The algorithm described below uses the proximity matrix of a random forest. This chapter describes how the Random Forest works, starting by explaining the Classification and Regression Tree method, and then describes how the proximity matrix is estimated. Readers with a familiarity with these methods may skip to the next chapter. 
+The algorithm described below uses the proximity matrix of a random forest. This chapter describes how the Random Forest works, starting by explaining the Classification and Regression Tree method, and then describes how the proximity matrix is estimated. Readers with a familiarity with these methods may skip to the next chapter.
 
-## CART
+## Regression Trees
 
 Classification and Regression Trees, known as CART and due to Brieman et al (1984), is a non-linear supervised recursive partitioning method. The aim of the technique is to partition a dataset according to the values of its covariates such that in each of the sub-groups the values of the dependent variable are more similar than in the parent group. The routine described below is a simplified version of the CART routine implemented in many software packages, though one that is much closer to the trees that make up a Random Forest. 
 
@@ -77,7 +77,7 @@ If two observations reach the same terminal node, they are said to be *proximate
 
 While CART models are extremely easy to understand and visualise, they do tend to result in overfitting. They also do not capture smooth relationships well (there will only be as many distinct predicted values as there are terminal nodes). 
 
-Random Forests were designed to address these problems. They are essentially a collection of (normally thousands of) CART models, with two small twists. First, in a Random Forest, each tree is estimated on a random subset of the observations $I$. Second, at each node, only a proportion of all candidate $x_{p}$ are eligible to be split on. All trees are grown to their full extent---that is, not pruned. This results in the trees that make up a Random Forest being quite distinct, there being no individual observation or $x$ variable that has an enormous influence over all trees as a group. 
+Random Forests (Brieman, 2001) were designed to address these problems. They are essentially a collection of (normally thousands of) CART models, with two small twists. First, in a Random Forest, each tree is estimated on a random subset of the observations $I$. Second, at each node, only a proportion of all candidate $x_{p}$ are eligible to be split on. All trees are grown to their full extent---that is, not pruned. This results in the trees that make up a Random Forest being quite distinct, there being no individual observation or $x$ variable that has an enormous influence over all trees as a group. 
 
 To generate predicted values from a Random Forest, a new observation $x_{i}$ is passed down all trees, and the fitted value is the average of the fitted values in all trees. 
 
@@ -132,7 +132,7 @@ Choosing the optimal terminal node size will involve making a trade-off between 
 library(randomForest); library(dplyr); library(ggplot2); library(reshape2)
 load("quarterly_data.RData")
 
-dss <- dss %>% as.data.frame %>%
+dss <- dat1 %>% as.data.frame %>%
   mutate(Unemp.1 = lag(Unemp),
          Unemp.2 = lag(Unemp, 2),
          CPI.1 = lag(CPI),
@@ -179,11 +179,13 @@ coefplot <- df1 %>% melt(id = 1:4, variable.name = "Bounds", value.name = "B") %
 
 This calculation is not straightforward; using analogy weighting can both increase and decrease the precision of parameter estimates. Because analogy scores discount dissimilar observations, they necessarily compress the support on which the parameters are estimated (see figures XX and XX2 in the next chapter). Taken alone, this should increase uncertainty in the parameter estimates. But the entire notion of proximity weighting is that irrelevant histories are just that---and co-movements during irrelevant periods simply confound our understanding of the true relationship today. If the co-movements between dependent and independent variables during analogous histories are less variable, then the precision of parameter estimates will *increase* under analogy weighting. 
 
+
+
 ### An example of estimating proximity weights
 
 The application below illustrates how one could use analogy weights in estimating the parameters of a simple economic model, and discusses the consequences of modelling choices. 
 
-The procedure of building analogy weights discussed above was carried out on quarterly US data, specifically, the unemployment rate, the rate on short-term US Treasuries, and the quarter-on-quarter percentage change of the major cities consumer price index, taking $T$ to be the first quarter of 2015. Random forests were trained on each of these variables, taking the first and second lags of the others to be predictors, and the out-of-bag proximity matrices were saved. The terminal node size used was 40, about a fifth of the sample.
+The procedure of building analogy weights discussed above was carried out on quarterly US data, specifically, the unemployment rate, the rate on short-term US Treasuries, and the quarter-on-quarter percentage change of the major cities consumer price index, taking $T$ to be the first quarter of 2015. Random forests were trained on each of these variables, taking the first and second lags of itself and the other variables to be predictors, and the out-of-bag proximity matrices were saved. The terminal node size used was 40, about a fifth of the sample; the average proximity between points should be roughly a fifth. 
 
 The plot below shows the resulting proximity matrix. Along the vertical axis is the date for which we would like historical analogies. Along the horizontal axis is the period being evaluated for similarity. The shading indicates the degree of similarity. 
 
@@ -194,11 +196,11 @@ Interestingly, there appear to be three or four distinct states; the first being
 
 Another important feature of the proximity matrix is its ability to inform the user when the current state of the world is without precedent in terms of the variables that help to generate predictions. When the state of the world differs substantially to the sample, then perhaps the implications of models estimated from (a very different) history should be trusted less. 
 
-A metric to evaluate the similarity of the current state to recorded history is to divide the effective sample size (the sum of weights) by the naive sample size (the number of observations) up to a given period. This gives the effective proportion of history up to a period that would be included if you were to use the analogy weights. It is a crude measure for similarity to all of recorded history, illustrated in the figure below. 
+A metric to evaluate the similarity of the current state to recorded history is to divide the effective sample size (the sum of weights) by the naive sample size (the number of observations) up to a given period. This gives the effective proportion of history up to a period that would be included if you were to use the analogy weights. It is a crude measure for similarity to all of recorded history. It is illustrated in the figure below. 
 
 ![A proximity matrix](relevant_histories.pdf)
 
-As a small illustration of how analogy weights impact parameter estimates and confidence bounds can be seen
+Note the three periods with the largest drop in relevant histories: the oil crisis of the 1970s, the recession of the early 1980s, and the Global Financial Crisis of the 2000s. Using analogy weights during these periods would involve learning less from history, and so being more unsure of model outputs. This feature is elaborated in the portfolio risk modelling example below. 
 
 ```{r, message=F, echo = F}
 library(dplyr)
@@ -232,8 +234,38 @@ library(gridExtra)
 
 ```{r, echo = F}
 library(ggplot2)
-coefplot + coord_flip()
+#coefplot + coord_flip()
 ```
+
+### Incorporating analogy weights into empirical models
+
+How can analogy weights help to improve the relevance of parameter estimation? This will depend on the complexity of the model.
+
+In simple models estimated using maximum likelihood, weights are typically incorporated by scaling the likelihood contribution of each data point by the weight. That is, for some density function that depends on data $y$ and parameters $\theta$, $f(y;\theta)$, the maximum weighted likelihood estimate using a weight vector $\omega_{i}$ will be 
+
+\[
+\mbox{MLE}(\theta) = \mbox{argmax}_{\theta}\sum_{i}\omega_{i}\log f(y_{i};\theta)
+\]
+
+For historical data points that are given little weight, this has the effect of reducing their importance in the estimation of $\theta$. If a data point is given zero weight, it has no impact on the estimation of the parameter. It is important to adjust the standard errors of parameters estimates when using weighted maximum likelihood. This will be affected by the weights in two ways: first, the variance-covariance matrix of $\theta$ will be a weighted variance covariance matrix, and second, there will be fewer effective observations. Analytically, the (weighted) Fisher Information matrix 
+
+\[
+I_{\omega}(\theta) = -\mbox{E}\left[\frac{\partial^{2} }{\partial\theta^{2}}\sum_{i}\omega_{i}\log f(y_{i};\theta)\right]
+\]
+
+helps to estimate the weighted covariance matrix
+
+\[
+\Sigma_{\beta} \approx \frac{1}{\sum_{i}\omega_{i}}I(\theta)^{-1}
+\]
+
+The Hessian matrix in side the square brackets of the first expression tell us about the curvature of the likelihood profile at the estimated point. If the likelihood is quite flat at the estimated $\theta$, then there should be more uncertainty about the parameter estimate. In this case, entries in the Hessian will be small, and its inverse will be large, increasing standard errors. If there is little weight placed on most historical values, then $\frac{1}{\sum_{i}\omega_{i}}$ will be large, increasing standard errors. 
+
+For more complex models estimated using Bayesian techniques, incorporating weights is slightly more involved. The below describes Hamiltonian Monte Carlo (the method used to estimate two models below) and how it can be augmented to include weighted observations. 
+
+#### Weighted Hamiltonian Monte Carlo
+
+In Bayesian analysis, the aim is to conduct inference about a posterior distribution of parameters given data $y$ and controls $X$ $p(\theta|y,X)$. The posterior distribution is proportional to a  prior distribution of the parameters multiplied by the likelihood of the data given the parameters $p(\theta|y,X)\propto p(\theta)\times p(y|theta, X)$. To make inference about a parameter, the posterior needs to be integrated. For example, the mean of some parameter $\beta$ would be $\hat\beta = \int_{\beta}\beta\times\p(\beta|y)d\beta$. For all but a few examples, posterior distributions cannot be integrated analytically. The solution under Markov Chain Monte Carlo is to provide draws from the posterior. 
 
 # 2a: An application to estimating core inflation
 
@@ -336,10 +368,10 @@ where $r_{t}$ is a vector of securities' log-returns between period $t-1$ and $t
 The scale terms are then given a GARCH specification: 
 
 \[
-\tau_{t} = c + \mbox{diag}(A)\tau_{t-1} + \mbox{diag}(B)\r_{t-1}
+\tau_{t} = c + \mbox{diag}(A)\tau_{t-1} + \mbox{diag}(B)r_{t-1}
 \]
 
-
+To provide Bayesian inference about the model, prior distributions are given to the parameters. 
 
 ## Predictive performance
 

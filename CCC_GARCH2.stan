@@ -49,6 +49,7 @@ model {
   
   // Likelihood
   for(t in 2:T){
-    r[t] ~ multi_normal(mu,quad_form_diag(Omega, tau[t]));
+    //r[t] ~ multi_normal(mu,quad_form_diag(Omega, tau[t]));
+    increment_log_prob(weights[t]*multi_normal_log(r[t], mu, quad_form_diag(Omega, tau[t])));
   }
 }

@@ -33,12 +33,15 @@ plot.ts(data)
 #data1 <- data[(nrow(data)-400):nrow(data),]
 data1 <- data*100
 
-ccgarch_data <- list(T = nrow(data1), P = ncol(data1), r = data1, weights = rep(1, nrow(data1)), df = 1.2, tau1 = abs(data[1,]))
+weights1 <- rep(1, nrow(data1))
+weights2 <- rep(0.02, nrow(data1))
+weights2[(length(weights2)-20):length(weights2)] <- 1
+ccgarch_data <- list(T = nrow(data1), P = ncol(data1), r = data1, weights = weights2, df = 1.2, tau1 = abs(data[1,]))
 
 ccgarch1 <- stan(file = "~/Documents/Thesis_work/CCC_GARCH2.stan", data = ccgarch_data, iter = 10, chains = 1, control=list( adapt_delta=0.9))
 ccgarch2 <- stan(fit = ccgarch1, data = ccgarch_data, iter = 500, chains = 4, cores = 4, warmup = 150, control=list( adapt_delta=0.9))
 
-save(ccgarch2, file = "20151002_ccgarchfit2.RData")
+#save(ccgarch2, file = "20151002_ccgarchfit2.RData")
 
 pars <- rstan::extract(ccgarch2, permuted = F)
 pars2 <- do.call(rbind, lapply(1:4, function(x) pars[,x,])) %>% as.data.frame
