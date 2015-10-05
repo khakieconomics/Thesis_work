@@ -265,7 +265,17 @@ For more complex models estimated using Bayesian techniques, incorporating weigh
 
 #### Weighted Hamiltonian Monte Carlo
 
-In Bayesian analysis, the aim is to conduct inference about a posterior distribution of parameters given data $y$ and controls $X$ $p(\theta|y,X)$. The posterior distribution is proportional to a  prior distribution of the parameters multiplied by the likelihood of the data given the parameters $p(\theta|y,X)\propto p(\theta)\times p(y|theta, X)$. To make inference about a parameter, the posterior needs to be integrated. For example, the mean of some parameter $\beta$ would be $\hat\beta = \int_{\beta}\beta\times\p(\beta|y)d\beta$. For all but a few examples, posterior distributions cannot be integrated analytically. The solution under Markov Chain Monte Carlo is to provide draws from the posterior. 
+In Bayesian analysis, the aim is to conduct inference about a posterior distribution of parameters given data $y$ and controls $X$ $p(\theta|y,X)$. The posterior distribution is proportional to a  prior distribution of the parameters multiplied by the likelihood of the data given the parameters $p(\theta|y,X)\propto p(\theta)\times p(y|theta, X)$. To make inference about a parameter, the posterior needs to be integrated. For example, the mean of some parameter $\beta$ would be $\hat\beta = \int_{\beta}\beta\times\p(\beta|y)d\beta$. For all but a few examples, posterior distributions cannot be integrated analytically. 
+
+The solution under Markov Chain Monte Carlo is to provide draws from the posterior, which allows numerical integration to be used. That is, if a "chain" of parameter esimates $\beta_{i}$ $N$-long can be drawn from the true posterior, then any given statistic about that parameter can be calculated. For example, an estimate of the parameter mean can be estimated using $\bar\beta = \frac{1}{N}\sum_{i}\beta_{i}$. A more detailed description including the Markov Chain theory behind the technique can be found in Greenberg (2012). 
+
+Hamiltonian Monte Carlo (as described in Betancourt and Girolami 2013 and the Stan Reference Manual 2015) provides draws from the posterior by specifying a joint probability between parameters $\theta$ and an auxiliary variable $\rho$, $p(\rho, \theta|y, X) = p(rho|theta, X, y)\times p(\theta|X, y)$. In most applications rho comes from a multivariate normal distribution with covariance matrix $\Sigma$, $\rho\sim\mathcal{MVN}(0, \Sigma)$ and so is independent of $\theta,x,y$. Borrowing from Hamiltonian Mechanics, the joint distribution defines a Hamiltonian: 
+
+\[
+H(\rho, \theta) = -\log p(\rho, \theta) = -log p(\rho) - log p(\theta|y, X) = T + V
+\]
+
+Where $T$ is the "kinetic energy" and $V$ is the "potential energy". Given an some parameter value $\theta_{t}$, the next parameter draw $\theta_{t+1}$ is generated as so. First, a value of $\rho$ is drawn. 
 
 # 2a: An application to estimating core inflation
 
