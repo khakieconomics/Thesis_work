@@ -192,7 +192,7 @@ The plot below shows the resulting proximity matrix. Along the vertical axis is 
 ![A proximity matrix](analogy_matrix.pdf)
 
 
-Interestingly, there appear to be three or four distinct states; the first being the post-GFC period in the top right. The second is a period of relative tranquility, roughly coinciding with the period between the early 1990s recession and the GFC, and the period before the stagflation of the 1970s. The third period, first making itself apparent in the late 1960s and continuing through until the early 1990s, is a less defined period. The emergence of fairly discrete states is interesting, given that the model is one of continuous states. 
+Interestingly, there appear to be three or four distinct states; the first being the post-GFC period in the top right. The second is a period of relative tranquility, roughly coinciding with the period between the early 1990s recession and the GFC, and the period before the stagflation of the 1970s. The third period, first making itself apparent in the late 1960s and continuing through until the early 1990s, is a less defined period. The emergence of fairly discrete states is interesting, given that there is no such restriction being placed on their discovery. 
 
 Another important feature of the proximity matrix is its ability to inform the user when the current state of the world is without precedent in terms of the variables that help to generate predictions. When the state of the world differs substantially to the sample, then perhaps the implications of models estimated from (a very different) history should be trusted less. 
 
@@ -239,7 +239,7 @@ library(ggplot2)
 
 ### Incorporating analogy weights into empirical models
 
-How can analogy weights help to improve the relevance of parameter estimation? This will depend on the complexity of the model.
+How can analogy weights be used to in estimating parameteric models? This will depend on the sort of model being estimated.
 
 In simple models estimated using maximum likelihood, weights are typically incorporated by scaling the likelihood contribution of each data point by the weight. That is, for some density function that depends on data $y$ and parameters $\theta$, $f(y;\theta)$, the maximum weighted likelihood estimate using a weight vector $\omega_{i}$ will be 
 
@@ -247,7 +247,7 @@ In simple models estimated using maximum likelihood, weights are typically incor
 \mbox{MLE}(\theta) = \mbox{argmax}_{\theta}\sum_{i}\omega_{i}\log f(y_{i};\theta)
 \]
 
-For historical data points that are given little weight, this has the effect of reducing their importance in the estimation of $\theta$. If a data point is given zero weight, it has no impact on the estimation of the parameter. It is important to adjust the standard errors of parameters estimates when using weighted maximum likelihood. This will be affected by the weights in two ways: first, the variance-covariance matrix of $\theta$ will be a weighted variance covariance matrix, and second, there will be fewer effective observations. Analytically, the (weighted) Fisher Information matrix 
+For historical data points that are given little weight, this has the effect of reducing their importance in the estimation of $\theta$. If a data point is given zero weight, it has no impact on the estimation of the parameter. It is important to adjust the standard errors of parameters estimates when using weighted maximum likelihood. They will be affected by the weights in two ways: first, the variance-covariance matrix of $\theta$ will be a weighted variance covariance matrix, and second, there will be fewer effective observations. Analytically, the (weighted) Fisher Information matrix 
 
 \[
 I_{\omega}(\theta) = -\mbox{E}\left[\frac{\partial^{2} }{\partial\theta^{2}}\sum_{i}\omega_{i}\log f(y_{i};\theta)\right]
@@ -256,7 +256,7 @@ I_{\omega}(\theta) = -\mbox{E}\left[\frac{\partial^{2} }{\partial\theta^{2}}\sum
 helps to estimate the weighted covariance matrix
 
 \[
-\Sigma_{\beta} \approx \frac{1}{\sum_{i}\omega_{i}}I(\theta)^{-1}
+\Sigma_{\beta} \approx \frac{1}{\sum_{i}\omega_{i}}I_{\omega}(\theta)^{-1}
 \]
 
 The Hessian matrix in side the square brackets of the first expression tell us about the curvature of the likelihood profile at the estimated point. If the likelihood is quite flat at the estimated $\theta$, then there should be more uncertainty about the parameter estimate. In this case, entries in the Hessian will be small, and its inverse will be large, increasing standard errors. If there is little weight placed on most historical values, then $\frac{1}{\sum_{i}\omega_{i}}$ will be large, increasing standard errors. 
@@ -265,17 +265,48 @@ For more complex models estimated using Bayesian techniques, incorporating weigh
 
 #### Weighted Hamiltonian Monte Carlo
 
-In Bayesian analysis, the aim is to conduct inference about a posterior distribution of parameters given data $y$ and controls $X$ $p(\theta|y,X)$. The posterior distribution is proportional to a  prior distribution of the parameters multiplied by the likelihood of the data given the parameters $p(\theta|y,X)\propto p(\theta)\times p(y|theta, X)$. To make inference about a parameter, the posterior needs to be integrated. For example, the mean of some parameter $\beta$ would be $\hat\beta = \int_{\beta}\beta\times\p(\beta|y)d\beta$. For all but a few examples, posterior distributions cannot be integrated analytically. 
+In Bayesian analysis, the aim is to conduct inference about a posterior distribution of parameters given data $y$ and controls $X$ $p(\theta|y,X)$. The posterior distribution is proportional to a  prior distribution of the parameters multiplied by the likelihood of the data given the parameters $p(\theta|y,X)\propto p(\theta)\times p(y|theta, X)$. The prior distribution is chosen by the researcher and incorporates information known before observing the data, such as previous study results, hard constraints on the parameter value, or an identifying belief that the parameter value is close to zero. To make inference about a parameter, the posterior needs to be integrated. For example, the mean of some parameter $\beta$ would be $\hat\beta = \int_{\beta}\beta\times p(\beta|y)d\beta$. For all but a few examples, posterior distributions cannot be integrated analytically. 
 
-The solution under Markov Chain Monte Carlo is to provide draws from the posterior, which allows numerical integration to be used. That is, if a "chain" of parameter esimates $\beta_{i}$ $N$-long can be drawn from the true posterior, then any given statistic about that parameter can be calculated. For example, an estimate of the parameter mean can be estimated using $\bar\beta = \frac{1}{N}\sum_{i}\beta_{i}$. A more detailed description including the Markov Chain theory behind the technique can be found in Greenberg (2012). 
+The solution under Markov Chain Monte Carlo is to provide draws from the posterior, which allows numerical integration to be used. That is, if an $N$-long "chain" of parameter esimates $\beta_{i}$ can be drawn from the true posterior, then any given statistic about that parameter can be calculated. For example, an estimate of the parameter mean can be estimated using $\bar\beta = \frac{1}{N}\sum_{i}\beta_{i}$. A more detailed description including the Markov Chain theory behind the technique can be found in Greenberg (2012). 
 
-Hamiltonian Monte Carlo (as described in Betancourt and Girolami 2013 and the Stan Reference Manual 2015) provides draws from the posterior by specifying a joint probability between parameters $\theta$ and an auxiliary variable $\rho$, $p(\rho, \theta|y, X) = p(rho|theta, X, y)\times p(\theta|X, y)$. In most applications rho comes from a multivariate normal distribution with covariance matrix $\Sigma$, $\rho\sim\mathcal{MVN}(0, \Sigma)$ and so is independent of $\theta,x,y$. Borrowing from Hamiltonian Mechanics, the joint distribution defines a Hamiltonian: 
+Hamiltonian Monte Carlo (as described in Betancourt and Girolami 2013 and the Stan Reference Manual 2015) provides draws from the posterior by specifying a joint probability between parameters $\theta$ and an auxiliary variable $\rho$, $p(\rho, \theta|y, X) = p(rho|theta, X, y)\times p(\theta|X, y)$. In most applications $\rho$ comes from a multivariate normal distribution with covariance matrix $\Sigma$, $\rho\sim\mathcal{MVN}(0, \Sigma)$ and so is independent of $\theta,x,y$. Borrowing from Hamiltonian Mechanics, the joint distribution defines a Hamiltonian: 
 
 \[
-H(\rho, \theta) = -\log p(\rho, \theta) = -log p(\rho) - log p(\theta|y, X) = T + V
+H(\rho, \theta) = -\log p(\rho, \theta) = -\log p(\rho) - \log p(\theta|y, X) = T + V
 \]
 
-Where $T$ is the "kinetic energy" and $V$ is the "potential energy". Given an some parameter value $\theta_{t}$, the next parameter draw $\theta_{t+1}$ is generated as so. First, a value of $\rho$ is drawn. 
+Where $T$ is the "kinetic energy" and $V$ is the "potential energy". Hamilton's equations describe how a Hamiltonian evolves over time: 
+
+\[
+\frac{\partial\theta}{\partial t} = +\frac{\partial T}{\partial \rho}
+\]
+
+\[
+\frac{\partial\rho}{\partial t} = -\frac{\partial V}{\partial \theta}
+\]
+
+(the second equation holds as long as $\rho$ is independent of the data and parameters). This system defines a two-state differential equation, which can be integrated using the leapfrog integrator, another tool borrowed from physics. Taking the initial position to be the current draw of $\theta$, a draw of $\rho$ is made from $\mathcal{MVN}(0, \Sigma)$. Initialised with these values, the leapfrog integrator proceeds for $L$ steps, each of length $\epsilon$, according to the following: 
+
+\[
+\rho \leftarrow \rho - \frac{\epsilon}{2}\frac{\partial  V}{\partial \theta}
+\]
+\[
+\theta \leftarrow \theta + \epsilon \Sigma \rho
+\]
+\[
+\rho \leftarrow \rho - \frac{\epsilon}{2}\frac{\partial  V}{\partial \theta}
+\]
+
+This integration has the effect of "steering" $\theta$ towards parts of its distribution with higher density. Consequently, $\theta$ spends a proportionately large amount of time towards the mode of its distribution, and less time at the tails. At the end of $L$ steps, there will be some numerical error. This is because while the surface of the density of $\theta$ is smooth, movements along it in each step are straight (the error increases with step size). A Metropolis step is therefore used to decide whether to keep the draw, where the probability of keeping a draw that started at $(\rho_{0}, \theta_{0})$ and arrived at $(\rho_{L}, \theta_{L})$ after $L$ steps is:
+
+\[
+\min(1, \exp(H(\rho_{0}, \theta_{0}) - H(\rho_{L}, \theta_{L})))
+\]
+
+The `stan` software package uses an implementation of HMC known as the No U-Turn Sampler (NUTS) of Hoffman and Gelman (2014). This algorithm automatically chooses the three control parameters, $L$, $\epsilon$ and $\Sigma$, but otherwise performs HMC as described above. 
+
+A vector of weights $\omega$ can be included in Hamiltonian Monte Carlo by weighting each observation's impact on the potential energy term $V_{\omega} = -\omega\log p(\theta|y, X)$. This is analogous to the case of weighting observations under maximum likelihood, although the potential energy term contains prior information also. 
+
 
 # 2a: An application to estimating core inflation
 
