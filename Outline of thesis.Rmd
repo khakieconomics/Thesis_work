@@ -263,7 +263,7 @@ The Hessian matrix in side the square brackets of the first expression tell us a
 
 For more complex models estimated using Bayesian techniques, incorporating weights is slightly more involved. The below describes Hamiltonian Monte Carlo (the method used to estimate two models below) and how it can be augmented to include weighted observations. 
 
-#### Weighted Hamiltonian Monte Carlo
+#### Weighted Hamiltonian Monte Carlo in Stan
 
 In Bayesian analysis, the aim is to conduct inference about a posterior distribution of parameters given data $y$ and controls $X$ $p(\theta|y,X)$. The posterior distribution is proportional to a  prior distribution of the parameters multiplied by the likelihood of the data given the parameters $p(\theta|y,X)\propto p(\theta)\times p(y|theta, X)$. The prior distribution is chosen by the researcher and incorporates information known before observing the data, such as previous study results, hard constraints on the parameter value, or an identifying belief that the parameter value is close to zero. To make inference about a parameter, the posterior needs to be integrated. For example, the mean of some parameter $\beta$ would be $\hat\beta = \int_{\beta}\beta\times p(\beta|y)d\beta$. For all but a few examples, posterior distributions cannot be integrated analytically. 
 
@@ -297,20 +297,30 @@ Where $T$ is the "kinetic energy" and $V$ is the "potential energy". Hamilton's 
 \rho \leftarrow \rho - \frac{\epsilon}{2}\frac{\partial  V}{\partial \theta}
 \]
 
-This integration has the effect of "steering" $\theta$ towards parts of its distribution with higher density. Consequently, $\theta$ spends a proportionately large amount of time towards the mode of its distribution, and less time at the tails. At the end of $L$ steps, there will be some numerical error. This is because while the surface of the density of $\theta$ is smooth, movements along it in each step are straight (the error increases with step size). A Metropolis step is therefore used to decide whether to keep the draw, where the probability of keeping a draw that started at $(\rho_{0}, \theta_{0})$ and arrived at $(\rho_{L}, \theta_{L})$ after $L$ steps is:
+This integration has the effect of "steering" $\theta$ towards parts of its distribution with higher density (unlike gradient descent, $\theta$ does not converge to the summit of the distribution, but continues over it with a given momentum). Consequently, $\theta$ spends a proportionately large amount of time towards the more dense region of its distribution, and less time at the tails. At the end of $L$ steps, there will be some numerical error. This is because while the surface of the density of $\theta$ is smooth, movements along it in each step are straight (the error increases with step size). A Metropolis step is therefore used to decide whether to keep the draw, where the probability of keeping a draw that started at $(\rho_{0}, \theta_{0})$ and arrived at $(\rho_{L}, \theta_{L})$ after $L$ steps is:
 
 \[
 \min(1, \exp(H(\rho_{0}, \theta_{0}) - H(\rho_{L}, \theta_{L})))
 \]
 
-The `stan` software package uses an implementation of HMC known as the No U-Turn Sampler (NUTS) of Hoffman and Gelman (2014). This algorithm automatically chooses the three control parameters, $L$, $\epsilon$ and $\Sigma$, but otherwise performs HMC as described above. 
 
-A vector of weights $\omega$ can be included in Hamiltonian Monte Carlo by weighting each observation's impact on the potential energy term $V_{\omega} = -\omega\log p(\theta|y, X)$. This is analogous to the case of weighting observations under maximum likelihood, although the potential energy term contains prior information also. 
+A vector of weights $\omega$ can be included in Hamiltonian Monte Carlo by weighting each observation's impact on the potential energy term $V_{\omega} = -\omega\log p(\theta|y, X)$. Because the prior does not rely on the data, the involves weighting each observation's contribution to the (log) likelihood. In Stan, a software package used to implement HMC, implementing these weights simply involves the following call in the model block of the program: 
 
+```
+// likelihood (priors are defined above)
+
+for(i in 1:number_of_observations){
+  increment_log_prob(weight[i]* a likelihood expression of data and parameters)
+}
+```
+
+Estimating models by HMC provides several advantages over other Bayesian techniques, such as Gibbs sampling or Metropolis Hastings (MH)---techniques described well in Tanner and Wong (1987), Gelfand and Smith (1990), and Chib and Greenberg (1995). The biggest is that because in a single iteration, $\theta$ may plausibly transition from any part of the the posterior to any other, draws are far more likely to be independen (see Betancourt and Girolami 2013). This is not the case in Gibbs or MH. Because draws are more likely to be independent, far fewer iterations are needed to draw inference about $\theta$. The other large advantage is that HMC is able to explore enormous parameter spaces---in the order of tens to hundreds of thousands of dimensions---without much trouble. This makes it feasible (if a little slow) to estimate time-varying parameter models by drawing directly from the posterior of the varying state space, rather than using work-arounds like the Kalman Filter. This saves time in model building, and provides more flexibility in specifying richer models (for instance, allowing the state to evolve with non-normal innovations). 
+
+Bayesian models can be estimated efficiently using the Stan software package (Stan development team, 2015), which uses an implementation of HMC known as the No U-Turn Sampler (NUTS) of Hoffman and Gelman (2014). This algorithm automatically chooses the three control parameters, $L$, $\epsilon$ and $\Sigma$, based on a series of adaptive iterations during the warm-up phase. Stan abstracts from the actual implementaion of HMC, allowing the user to instead specify the probability model being estimated. Users can call programs written in stan from within R, Python, Matlab, Julia or Stata.
 
 # 2a: An application to estimating core inflation
 
-Most central banks have a mandate to fight inflation, either explicitly, as with a numerical inflation target, or implicitly, as with the Fed's "just do it" approach (Mishkin, 2002). The inflation that is typically targetted is a notion of "core inflation", the inflation that would remain after self-correcting blips have been ignored. This is a latent quantity, and must be estimated. Various methods of estimating core inflation exist, such as removing volatile component price series, or by decomposing price series into factors using principle component analysis. 
+Most central banks have a mandate to fight inflation, either explicitly, as with a numerical inflation target, or implicitly, as with the Fed's "just do it" approach (Mishkin, 2002). The inflation that is typically targetted is a notion of "core inflation", the inflation that would remain after self-correcting blips have been ignored. This is a latent quantity, and must be estimated. Various methods of estimating core inflation exist---several are discussed below. 
 
 ## Core inflation
 
@@ -320,15 +330,15 @@ The first commonly-used approach is to model core inflation as being some latent
 
 A second, more principled approach is to model core inflation as being the permanent component of inflation, and therefore the part that has no effect on medium or long-run economic activity. Quah and Vahey (1995), Ribba (2003) and Cogley and Sargent (2001, 2005) take this approach. Cogley and Sargent’s (2001, 2005) method is to take core inflation to be the median of posterior predictive distributions for inflation into the distant future, using a Bayesian VAR with time-varying parameters. Quah and Vahey (1995) define core inflation to be the rate of inflation that has no impact on middle to long-run growth (estimated using a restricted classical VAR).
 
-There are problems with both approaches. The dynamic factor model approach does not typically discriminate between periods in which a signal variable contains a lot of information about the unobserved factor and when it contains less. It is also sensitive to the choice of variables used as inputs to the factors. By dropping or censoring signal series, ad-hoc approaches may not have this problem, however are both costly and atheoretic. In the second approach, an economic model must be built that provides the best possible (long-run) forecasts, given information available at the time the forecast is being made. Thus the problem in estimating core inflation using this approach is one of finding a good forecasting model, and parameterising it with the most relevant parameters for making forecasts. 
+There are problems with both approaches. The dynamic factor model approach does not typically discriminate between periods in which a signal variable contains a lot of information about the unobserved factor and when it contains less. It is also sensitive to the choice of variables used as inputs to the factors. By dropping or censoring signal series, ad-hoc approaches may not have this problem, however are both costly and atheoretic. In the second approach, an economic model must be built that provides the best possible (long-run) forecasts, given information available at the time the forecast is being made. Thus the problem in estimating core inflation using this approach is one of finding a good forecasting model, and parameterising it with the most relevant parameters at the time of making forecasts. 
 
 In the demonstration below, I use the second approach to estimating core inflation. The demonstration makes use of three models: the first is a vanilla VAR with static parameters. The second is a time-varying parameter VAR based on the Cogley and Sargent's (2001) model. The third model is a vanilla VAR augmented to make use of analogy weights. 
 
 ## Three approaches formally
 
-### Vanilla VAR
+### Vanilla Bayesian VAR
 
-The model describes the co-movement between inflation, unemployment and the yield on short-term Treasuries, using a VAR(2). Taking $Y_{t}$ to be vector containing all variables, the first model is 
+The model describes the co-movement between inflation, unemployment and the yield on short-term Treasuries, using a VAR(2) specification. Taking $Y_{t}$ to be vector containing all variables, the first model is 
 
 \[
 \mathbf{Y_{t} = \mu + \beta_{1}Y_{t-1} + \beta_{2}Y_{t-2} + \epsilon_{t}}
@@ -344,11 +354,11 @@ Under this setup, we give independent priors to the correlation and scale: the s
 
 I experimented with two approaches to modelling the covariance between the coefficients $\mu$, $\beta_1$ and $\beta_2$. Estimating a full covariance matrix would be too burdonsome given the amount of data available (it would involve estimating 210 parameters in the covariance matrix alone). One approach is to use a Littermann prior, which restricts $\Omega$ to be diagonal and specifies priors on $\tau$. Another approach is to estimate only the covariances within each "block"; that is, allow $\mu$ to have an estimated covariance, and likewise with the $\beta$s. This has the advantage that it only requires estimating 78 covariance parameters, and was the approach taken for this model. 
 
-The model is estimated using Hamiltonian Monte Carlo HMC, a technique that aims to draw directly from the posterior density using Hamiltonian mechanics. The particular implementation of HMC used is called the No U-Turn Sampler (Hoffman & Gelman, 2011), which is implemented in the stan modelling language. 
+The model is estimated using HMC as described above, with no weights. The model is estimated 
 
 While being fitted, the model calculates 1-year-ahead posterior predictions; these make use of both the uncertainty in the regression error and uncertainty in parameter estimates. These predictions form the basis for the model comparisons below. 
 
-### Augmented VAR
+### Weighted VAR
 
 The second model fitted takes exactly the same form as the VAR described above, with one difference: it is fitted using analogies weights. These weights are calculated as in Section XX above, using inflation, unemployment and the interest rate as the variables used to estimate analogies. These weights could be thought of as affecting the residual covariance of the VAR process:
 
