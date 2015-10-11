@@ -39,27 +39,51 @@ Why may similar periods be more relevant to today than dissimilar periods? This 
 
 While the channels by which these models transmit shocks vary, their implications for reduced-form modelling are similar: the behaviour of economic agents probably varies across states of the world, and there are potentially many such states. 
 
-Regime-switching models as in Hamilton (1988, 1989) and as reviewed in Kuan (2002) and Hamilton and Raj (2013) attempt to model changes in  by allowing parameters to vary across a discrete number of regimes. These models have been applied in a variety of settings, such as examining fiscal multipliers across in recessions vs expansions (Auerbach and Gorodnichenko 2012) and the permanent and transitory impacts of business cycles across different sub-periods of the business cycle (Kim and Murray, 2001). Another interesting application to currency volatility is in (Klassen, 2001). In that paper, standard GARCH forecasts of volatility tend to be too high during high-volatility periods; this is because long periods of relative calm result in a GARCH model's persistence parameter being very high. Allowing GARCH parameters to vary across states results in better out-of-sample volatility forecasts. 
+Regime-switching models as in Hamilton (1988, 1989) and as reviewed in Kuan (2002) and Hamilton and Raj (2013) attempt to model changes in the state of the economy by allowing parameters to vary across a discrete number of regimes. These models have been applied in a variety of settings, such as examining fiscal multipliers in recessions vs expansions (Auerbach and Gorodnichenko 2012) and the permanent and transitory impacts of business cycles across different sub-periods of the business cycle (Kim and Murray, 2001). Another interesting application to currency volatility is in Klaassen (2001). In that paper, standard GARCH forecasts of volatility tend to be too high during high-volatility periods; this is because long periods of relative calm result in a GARCH model's persistence parameter being very high. Allowing GARCH parameters to vary across states results in better out-of-sample volatility forecasts. 
 
-The basic structure adopted by the regime-switching literature is to allow for some model to depend on parameters that vary across $s\in S$ different states: $y = f(\theta_{s}, x)$. The states themselves are not known, but need to be inferred based on observations of $y$. Of central instance is the probability of transitioning from state $j$ to state $k$ $p(s_{t}=k|s_{t-1}=j, \dots,s_{1} = l, y_{t-1}, \dots, y_{1})$. If this probability is equivalent to $p(s_{t}=k|s_{t-1}=j)$, then the state transitions according to a Markov Chain. 
+The basic structure adopted by the regime-switching literature is to allow for some model to depend on parameters that vary across $s\in S$ different states: $y = f(\theta_{s}, x)$. The states themselves are not known, but need to be inferred based on observations of $y$. Of central interest is the probability of transitioning from state $j$ to state $k$ $p(s_{t}=k|s_{t-1}=j, \dots,s_{1} = l, y_{t-1}, \dots, y_{1})$. If this probability is equivalent to $p(s_{t}=k|s_{t-1}=j)$, then the state transitions according to a Markov Chain. 
 
-Regime switching models are clearly a powerful approach at capturing un-modelled variation across time, especially if the differences between  parameters' values in one state and another are large (this scenario may be difficult to model in the continuous state approach below). Yet the main drawback is that the approach relies on all regimes having been observed in the historical series, this limitation reveals itself in overfitting (in which out of sample performance is significantly worse than in-sample performance). This anecdote, from Fabozzi et al (2011) illustrates the point well: 
+Regime switching models are clearly a powerful approach at capturing un-modelled variation across time, especially if the differences between  parameters' values in one state and another are large (this scenario may be difficult to model in the continuous state approach below). Yet the main drawback is that the approach relies on all regimes having been observed in the historical series. This limitation reveals itself in overfitting (in which out of sample performance is significantly worse than in-sample performance). This anecdote, from Fabozzi et al (2011) illustrates the point well: 
 
 > A survey participant at a firm where regime-shifting models have been experimented with commented,
 >
 > > Everyone knows that returns are conditioned by market regimes, but the potential for overfitting when implementing regime-switching models is great. If you could go back with fifty years of data---but we have only some ten years of data and this is not enough to build a decent model.
 
-As the number of potential states of the economy grows, it may make more sense to use continuous-state models, as described in Koop and Korobilis (2013). Under this approach, rather than having a set of parameters for each state of the economy, the "state" of the economy *is* the set of parameters; these are allowed to vary over time. A common implementation of these models, as in Cogley and Sargent (2001, 2005) and Koop et al (2009), Koop and Korobilis (2009, 2013) models parameters as changing over time in a random walk process, rather than modelling parameter values as responding directly to changes in exogenous variables. Such a modelling choice is not necessary, but has been a preferred approach. These papers implement some version of the following model. Taking some vector of variables $y$, they estimate the state space model
+As the number of potential states of the economy grows, it may make more sense to use continuous-state models, as described in Koop and Korobilis (2013). In this approach, rather than having a set of parameters for each state of the economy, the "state" of the economy *is* the set of parameters; these are allowed to vary over time. A common implementation of these models, as in Cogley and Sargent (2001, 2005) and Koop et al (2009), Koop and Korobilis (2009, 2013) models parameters as changing over time in a random walk process, rather than modelling parameter values as responding directly to changes in exogenous variables. These papers implement some version of the following model. Taking some vector of variables $y$, they estimate the state space vector autoregression
 
 \[
 y_{t} = Z_{t}\beta_{t} + \epsilon_{t}
 \]
 
-where 
+Where $Z_{t}$ contains an intercept and $p$ lags of the dependent variables. The state evolves according to a random walk
+
 \[
-\beta_{t} = \beta_{t}
+\beta_{t} = \beta_{t-1} + \eta_{t}
 \]
-These existing methods offer some real benefits to a researcher modelling unobserved structural changes. Yet the models have drawbacks. Like typical reduced-form models, discrete regime-switching models are unable to generate states that have not been observed. If the true data generating process has not revealed all her states, these methods are prone to inductive errors (Popper, 1934). In contrast, continuous-state models give positive weight to the possibility of as-yet unobserved states. But they are hard to implement, and tend to be very richly parameterised. A large number of parameters relative to the number of observations requires that informative priors must be used to estimate continuous-state models. 
+
+and the innovations to both the VAR and state processes are multivariate normal. In some implementations (such as Cogley and Sargent's 2005 model) the covariance of VAR innovations is itself time-varying, in which case these form a part of the evolving state. 
+
+\[
+\epsilon \sim \mathcal{MVN}(0, \Sigma_{(t)})
+\]
+
+\[
+\eta \sim \mathcal{MVN}(0, Q)
+\]
+
+Given priors on $\beta_{0}$, $\Sigma$ and $Q$, the papers above estimate the time-varying $\beta$ using a Kalman Filter. One common modification (as in Koop and Korobilis 2013 and Raftery et al 2010) is to include in the filter a "forgetting factor"---a parameter that determines how much past information influences the current estimate of $\beta_{t}$. The implicit assumption made when using this approach is that the distant past is irrelevant to parameter estimates today. 
+
+Both methods described above---regime shifting models and continuous-state-space models---offer some real benefits to a researcher modelling unobserved structural changes. Yet the models have drawbacks. Like typical reduced-form models, discrete regime-switching models are unable to generate states that have not been observed. If the true data generating process has not revealed all her states, these methods are prone to inductive errors (Popper, 1934). In contrast, continuous-state models give positive weight to the possibility of as-yet unobserved states. But they are hard to implement, and tend to be very richly parameterised. A large number of parameters relative to the number of observations requires that informative priors must be used to estimate continuous-state models (see Koop and Korobilis, 2009). 
+
+These problems are not unique to econometrics. In the machine learning and signal processing literature, "time-series-clustering" techniques aim to group time-series together into clusters, each of which should contain time-series that behave similarly. When researchers are looking for analogous periods of a given time-series, they use "subsequence clustering", in which a rolling window generates many time-series which can be clustered. 
+
+One approach (summarised in Keogh and Lin, 2003) has been to compute the values of a point-wise distance (usually a L1 or L2 norm) between all adjacent points in two time-series, and summarise the "similarity" between the two series with the average value of the distance. Time series are then clustered using K-means or hierarchical clustering. This approach is extremely computationally expensive when the length of time-series is large, and impossible when there are missing values or time-series are different lengths. In Keogh and Lin (2003), this method is shown in many cases to generate "meaningless" clusters---clusters of time series that perform for prediction no better than random groupings. 
+
+Another approach has been to summarise time-series in terms of their "characteristics", and then cluster on these. This is less computationally draining, and allows the researcher to cluster series that have different lengths, missing data, etc. In Deng et al (1997), each series is characterised by the parameters of an ARMA model fitted to it, and series are clustered based on these parameter estimates. In Wang and Hyndman (2006), each time-series is summarised according to characteristics including frequency, serial correlation, trend, skewness, kurtosis, seasonality, etc., and series are clustered based on the values of these characteristics. This approach to time-series clustering has been more successful at generating useful clusters. 
+
+There are a few aspects of the time-series clustering approach that make its application to economic problems 
+
+### How this paper relates to the literature
 
 The algorithm described below aims to overcome the difficulties associated with both regime-switching models and continuous-state models. It does so at a cost of moving away from a generative model. The method works by building a weighting vector that relates one period in history (normally today) with all other periods in observed history. This score serves as a "distance between histories", and is defined on the characteristics of the economy or system at that point in time. 
 
