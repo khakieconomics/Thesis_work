@@ -1,7 +1,9 @@
 
 library(Quandl); library(rstan); library(dplyr); library(reshape2); library(stringr)
 cc <- function(x) x[complete.cases(x),]
-Quandl.api_key("your key here")
+key <- read.csv("~/Documents/quandl_key.csv", header = F)[1] 
+key <- key[1,1] %>% as.character()
+Quandl.api_key(key)
 
 aapl <- Quandl("YAHOO/AAPL", collapse = "weekly")
 ibm <- Quandl("YAHOO/IBM", collapse = "weekly")
