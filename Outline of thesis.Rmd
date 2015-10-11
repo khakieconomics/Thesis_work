@@ -432,7 +432,42 @@ The data used come from the vintage data releases contained in the ALFRED databa
 
 Portfolio risk managers are tasked with holding sufficient cash to insure that asset purchases and withdrawals from the portfolio can be paid for even when asset prices fall. This requires generating estimates of Value At Risk (VaR), a measure defined as the minimum loss expected in some event that should occur with a given frequency over a period. For example, if a portfolio has $5M VaR over 1 day at 95%, this would mean that not more than one in twenty days should involve losses greater than $5M. 
 
-Due to volitility clustering (Mandlebrot 1963), the VaR of a portfolio will change over time. More volatile periods will imply a greater chance of loss, and so VaR will increase. A good volatility model can help managers hold liquidity at times that are most likely to be most volatile. GARCH-style models (due to Bollerslev 1986) are a common choice for this task. 
+Due to volitility clustering (Mandlebrot 1963), the VaR of a portfolio will change over time. More volatile periods will imply a greater chance of loss, and so VaR will increase. A good volatility model can help managers hold liquidity at times that are most likely to be most volatile. Generalized Auto-Regressive Conditional Heteroskedasticity (GARCH)-style models (due to Bollerslev 1986) are a common choice for this task. 
+
+For a stationary univariate time series $y_{t}$, a GARCH(p,q) model (for simplicity with no lags of $y$) has the following specification: 
+
+\[
+y_{t} = \mu + h_{t}\eta_{t}
+\]
+
+Where $\mu$ is the unconditional mean value of $y$, $\eta$ is i.i.d. around 0, and $h_{t}$ is the conditional standard deviation of residuals. $h_{t}$ evolves according to: 
+
+\[
+h_{t}^{2} = \alpha_{0} + \sum_{i = 1}^{p} \alpha_{i}(y_{t-i}-\mu)^{2} +  \sum_{j = 1}^{q}\beta_{j}h_{t-j}^{2}
+\]
+
+For a given starting value $h_{0}$, estimating a GARCH model requires estimating only $\mu$, a $p+1$-dimensional vector $\alpha$, and a $q$-dimensional vector $\beta$. This is most commonly done using maximum likelihood, and can be estimated using Bayesian techniques also. 
+
+While univariate GARCH models offer a simple method of modelling conditional volatility, often a risk manager may be concerned about the correlation between assets' returns. The Constant Conditional Correlation (multivariate) GARCH model of Bollerslev (1990) provides a very simple method of modelling this correlation. A vector of stationary variables $\mathbf{y}_{t}$ with unconditional mean $\pmb{\mu}$ and covariance matrix $\mathbf{H}_{t}$ behaves according to 
+
+\[
+\mathbf{y}_{t} = \pmb{\mu} + \mathbf{H}^{1/2}\pmb{\eta}_{t}
+\]
+
+Where $\pmb{\eta}$ is iid with a unit diagonal covariance matrix. The covariance matrix is modelled as being the diagonal quadratic form of a scale vector that varies over time $\pmb{\tau_{t}}$ and a correlation matrix that is fixed, $\pmb{\Omega}$. 
+
+\[
+H_{t} = \mbox{diag}(\pmb{\tau}_{t})\pmb{\Omega}\mbox{diag}(\pmb{\tau}_{t})
+\]
+
+And the scale parameters themselves are modelled as coming from a GARCH process.
+
+\[
+\pmb{\tau}_{t}\odot\pmb{\tau}_{t} = \pmb{\omega} + \sum_{i = 1}^{p}\mathbf{A_{i}}(\pmb{y}_{t-i} - \pmb{\mu})\odot(\pmb{y}_{t-i} - \pmb{\mu}) + \sum_{j = 1}^{q} \mathbf{B}_{j}\pmb{\tau}_{t-1- j}\odot\pmb{\tau}_{t-1-j}
+\]
+
+Where $\odot$ is elementwise multiplication. 
+
 
 The model described below is an augmentation of the CCC-GARCH model of Bollerslev (1991). It makes two improvements. First, it allows for analogy weighting. The practical impact of allowing analogy weights is to give time-variation to the correlation matrix, so that the model will have similar correlations between asset returns across similar states of history. This sits in contrast to other popular methods like VC-GARCH of Tse and Tsui (2002) and DCC-GARCH of Engle (2002), in which correlations react to recent comovements. 
 
