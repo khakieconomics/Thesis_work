@@ -383,16 +383,16 @@ In the demonstration below, I use the second approach to estimating core inflati
 The model describes the co-movement between inflation, unemployment and the yield on short-term Treasuries, using a VAR(2) specification. Taking $Y_{t}$ to be vector containing all variables, the first model is 
 
 \[
-\mathbf{Y_{t} = \mu + \beta_{1}Y_{t-1} + \beta_{2}Y_{t-2} + \epsilon_{t}}
+\mathbf{Y}_{t} = \pmb{\mu} + \pmb{\beta}_{1}\mathbf{Y}_{t-1} + \pmb{\beta}_{2}Y_{t-2} + \pmb{\epsilon}_{t}
 \]
 
-where $\mu$ and the $\beta$s are coefficients and the multivariate residual $\epsilon\sim\mathcal{MVN}(0, \Sigma)$. The parameters are estimated in a Bayesian framework, and have so-called "shrinkage" priors applied. These are all equal to 0 except the AR(1) terms, which have a prior of 1. The residual matrix $\Sigma$ is decomposed into a correlation matrix $\Omega$ and a scale vector $\tau$ such that 
+where $\pmb{\mu}$ and the $\pmb{\beta}$ s are coefficients and the multivariate residual $\pmb{\epsilon}\sim\mathcal{MVN}(0, \Sigma)$. The parameters are estimated in a Bayesian framework, and have so-called "shrinkage" priors applied. These are all equal to 0 except the AR(1) terms, which have a prior of 1. The residual covariance matrix $\Sigma$ is decomposed into a correlation matrix $\Omega$ and a scale vector $\tau$ such that 
 
 \[
 \Sigma = \mbox{diag}(\tau)\Omega\mbox{diag}(\tau)
 \]
 
-Under this setup, we give independent priors to the correlation and scale: the scale vectors have a prior distribution of $\tau\sim \mbox{Cauchy}_{+}(0, 2.5)$, and the correlation comes from the the LKJ distribution $\Omega \sim\mbox{lkj}(1.5)$. The LKJ distribution is a quite new distribution for correlation matrices that addresses some of the shortcomings of the popular Inverse-Wishart prior. The single parameter of the distribution dictates how much cross-correlation the distribution will produce; a value of 1 results in a uniform prior, while as this degrees of freedom parameter goes to infinity, the distribution collapses on the unit-diagonal correlation matrix. 
+Under this setup, we give independent priors to the correlation and scale: the scale vectors have a prior distribution of $\tau\sim \mbox{Cauchy}_{+}(0, 2.5)$, and the correlation comes from the the LKJ distribution $\Omega \sim\mbox{lkj}(1.5)$. The LKJ distribution of Lewandowski et al (2009) is a quite new distribution for correlation matrices that addresses some of the shortcomings of the popular Inverse-Wishart prior. The single parameter of the distribution dictates how much cross-correlation the distribution will produce; a value of 1 results in a uniform prior, while as this degrees of freedom parameter goes to infinity, the distribution collapses on the unit-diagonal correlation matrix. 
 
 I experimented with two approaches to modelling the covariance between the coefficients $\mu$, $\beta_1$ and $\beta_2$. Estimating a full covariance matrix would be too burdonsome given the amount of data available (it would involve estimating 210 parameters in the covariance matrix alone). One approach is to use a Littermann prior, which restricts $\Omega$ to be diagonal and specifies priors on $\tau$. Another approach is to estimate only the covariances within each "block"; that is, allow $\mu$ to have an estimated covariance, and likewise with the $\beta$s. This has the advantage that it only requires estimating 78 covariance parameters, and was the approach taken for this model. 
 
@@ -409,10 +409,10 @@ The second model fitted takes exactly the same form as the VAR described above, 
 The third model considered is a Time-varying-parameter VAR, similar to the one described in Cogley and Sargent (2001). The model is 
 
 \[
-\mathbf{Y_{t} = \mu_{t} + \beta_{1,t}Y_{t-1} + \beta_{2,t}Y_{t-2} + \epsilon_{t}}
+\mathbf{Y}_{t} = \pmb{\mu}_{t} + \pmb{\beta}_{1,t}\mathbf{Y}_{t-1} + \pmb{\beta}_{2,t}\mathbf{Y}_{t-2} + \pmb{\epsilon}_{t}
 \]
 
-with the coefficients themselves evolving over time. Take $\theta = [\mu, \mbox{vec}\beta_1,\mbox{vec}\beta_2]'$, where the $\mbox{vec}$ operation stacks the a matrix in column-major order, then:
+with the coefficients themselves evolving over time. Take $\theta = [\pmb{\mu}, \mbox{vec}\pmb{\beta}_1,\mbox{vec}\pmb{\beta}_2]'$, where the $\mbox{vec}$ operation stacks the a matrix in column-major order, then:
 
 \[
 \theta_{t} = \theta_{t-1} + \eta_{t}
@@ -421,11 +421,27 @@ with the coefficients themselves evolving over time. Take $\theta = [\mu, \mbox{
 and $\eta\sim\mathcal{MVN}(0, \Sigma_{\eta})$. For identifiability, suitable structure must be put on $\Sigma_{\eta}$; in the work illustrated below, I assume that it is diagonal. 
 
 
-## Data used
+## Data and method
 
-The data used come from the vintage data releases contained in the ALFRED database. The data series are: The annualised CPI growth rate for major cities; the national non-farm unemployment rate; and the annualised yield on 90 day Treasuries. 
+Two sets of data are used. The first set is the current release, which includes any revisions made to the original releases. The second set of data used come from the vintage data releases contained in the ALFRED database. These include the data that were available at each period in time.  The data series include quarterly observations of the annualised CPI growth rate for major cities; the national non-farm unemployment rate; and the annualised yield on 90 day Treasuries. The raw data series are monthly, and we need to convert these into quarterly observations. For CPI growth, the first month's value for each quarter is assigned to the whole quarter. For unemployment we also take the first month of each quarter. For treasury yields, the average value during each quarter is used. 
+
+Using data starting from 1960Q1, the three models are estimated up to a specified date. This date starts at 1970Q1 and extends in 1-year increments. At the end of each estimation period, the models generate 1-year ahead posterior predictive forecasts. These can be used to compare the predictive accuracy of each model. The models then produce a limiting posterior forecast of each series. For both the vanilla VAR and weighted VAR, the limiting forecast is simply the unconditional mean of each series. This is achieved by re-writing the VAR in lag notation: 
+
+\[
+(\mathbf{I} - \pmb_{\beta}_{1}L - \pmb{\beta}_{2}L^{2})Y_{t} = \pmb{\mu} + \pmb{epsilon}_{t}
+\]
+
+Taking expectations and inverting gives
+
+\[
+E[Y] = (\mathbf{I} - \pmb_{\beta}_{1}L - \pmb{\beta}_{2}L^{2})^{-1}\pmb{\mu} =  (\mathbf{I} - \pmb_{\beta}_{1} - \pmb{\beta}_{2})^{-1}\pmb{\mu}
+\]
+
+The second equality holds because $L\mu = \mu$. For the time-varying VAR, this inversion is not trivial, as $\mu_{t}$ varies over time. In this case, a limiting forecast is obtained by forward-simulating the model 100 quarters, with explosive states discarded, as in Cogley and Sargent (2001). 
 
 ## Forecasting performance of the three approaches
+
+## Fed responses to permanent inflation
 
 
 # 2b: An application to portfolio risk management
