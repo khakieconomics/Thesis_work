@@ -2,7 +2,7 @@
 title: How would an historian do time-series econometrics? Analogy weighting using
   machine learning
 author: "Jim Savage"
-date: "7 July 2015"
+date: "12 October 2015"
 output: pdf_document
 fontsize: 12pt
 linestretch: 1.5
@@ -441,6 +441,8 @@ The second equality holds because $L\mu = \mu$. For the time-varying VAR, this i
 
 ## Forecasting performance of the three approaches
 
+
+
 ## Fed responses to permanent inflation
 
 
@@ -503,10 +505,6 @@ The analogy weights are constructed using the technique described above, using r
 The unconditional mean prior is $\pmb{\mu} \sim \mathcal{N}(0,0.01)$, indicating that we expect the unconditional weekly return to be close to 0 over long periods. The volatility scale prior is $\pmb{\tau}\sim \mbox{Cauchy}_{+}(0, 2.5)$, while the prior on elements of $\pmb{\mu}$, $\mathbf{A}$, and $\mathbf{B}$ are all $\mathcal{N}(0,1)$. 
 
 ## Predictive performance
-
-
-
-## Performance of vanilla MGARCH and analogy-weighted MGARCH during crisis
 
 
 # 5: Conclustion
