@@ -1,5 +1,5 @@
 
-library(Quandl); library(rstan); library(dplyr); library(reshape2); library(stringr); library(randomForest)
+library(Quandl); library(rstan); library(dplyr); library(reshape2); library(stringr); library(randomForest); library(ggplot2); library(ggthemes)
 cc <- function(x) x[complete.cases(x),]
 key <- read.csv("~/Documents/quandl_key.csv", header = F)[1] 
 key <- key[1,1] %>% as.character()
@@ -28,24 +28,31 @@ JNJ2 <- changer(JNJ, "JNJ")
 
 raw_data <- aapl2 %>% left_join(ibm2) %>% left_join(goog2) %>% left_join(ford2) %>% left_join(BoA2) %>% left_join(JNJ2) %>% cc 
 
-dates <- raw_data$Date
-# Compile the model
-data1 <- raw_data %>% select(-Date)
+data <- raw_data %>% select(-Date) %>% apply(2, function(x) diff(log(x))) %>% as.data.frame
+data1 <- data*100
+
+port_ret <- data.frame(Actual = rowMeans(data1), Date = raw_data$Date[-1])
+
+weights1 <- rep(1, nrow(data1))
 ccgarch_data <- list(T = nrow(data1), P = ncol(data1), r = data1, weights = weights1, df = 1.2, tau1 = abs(data[1,]))
+
 ccgarch1 <- stan(file = "~/Documents/Thesis_work/CCC_GARCH2.stan", data = ccgarch_data, iter = 10, chains = 1, control=list( adapt_delta=0.9))
 
 
 
 # Run simulations -----------------------------------------------------------
-gfc_dates <- dates[dates>=as.Date("2008-06-29") & dates< as.Date("2009-01-01")]
+dates <- raw_data$Date
+gfc_dates <- dates[dates>=as.Date("2007-06-29") & dates< as.Date("2013-07-01")]
 
 VaR <- data.frame(Week = gfc_dates, Unweighted_VaR = NA, Weighted_VaR = NA, Actual_returns = NA)
 
 # For holding the model runs
 e <- new.env()
 
+count <- 0
 # Run simulations for GFC period (second half of 2008)
 for (d in gfc_dates){
+  count <- count + 1
   # Set up subset data
   d <- as.Date(d)
   raw_ss <- raw_data %>% filter(Date<=d) %>% select(-Date)
@@ -113,5 +120,100 @@ for (d in gfc_dates){
 }
 
 e_list <- as.list(e)
-save(e_list, file = "weighted_unweighted_ccc_garch.RData")
+save(e_list, file = "weighted_unweighted_ccc_garch_A_prior_1.RData")
 
+VaR$Actual_returns <- port_ret$Actual[port_ret$Date %in% gfc_dates]
+
+save(VaR, file = "Value_at_risk_GFC_A_prior_1.RData")
+
+VaR %>% melt(id = "Week") %>% rename(Series = variable) %>%
+  mutate(Series = ifelse(Series=="Actual_returns", "Absolute\nActual returns", ifelse(Series=="Weighted_VaR", "Absolute\nVaR weighted\nmodel", "Absolute\nVaR unweighted\nmodel"))) %>%
+  ggplot(aes(x = Week, y = abs(value), colour = Series)) + 
+  geom_line() +
+  theme_fivethirtyeight() +
+  ggtitle("Same model, different weights\nVaR calculated with\nand without analogy weights\n") +
+  annotate("text", x = as.Date("2008-03-01"), y = 10, label = "Quicker to jump\nduring crisis", colour = 4, size = 3) +
+  annotate("text", x = as.Date("2010-01-01"), y = 7, label = "Quicker to fall\nafterwards", colour = 4, size = 3)
+  
+  
+VaR %>% cc %>%
+  mutate(`Weighted` = abs(abs(Actual_returns) - abs(Weighted_VaR)),
+         `Unweighted` = abs(abs(Actual_returns) - abs(Unweighted_VaR)),
+         Ratio = Weighted - Unweighted) %>%
+  select(Week, Ratio) %>%
+  ggplot(aes(x = Week, y = Ratio)) + 
+  geom_line() +
+  geom_smooth() +
+  theme_fivethirtyeight() +
+  ggtitle("Ratio of cost of weighted\nmodel to cost of\nunweighted model")
+
+
+VaR %>% cc %>%
+  mutate(`Weighted` = cumsum(abs(Actual_returns) - abs(Weighted_VaR)),
+         `Unweighted` = cumsum(abs(Actual_returns) - abs(Unweighted_VaR)),
+         Ratio = Weighted/Unweighted) %>%
+  select(Week, Weighted, Unweighted) %>% melt(id = "Week") %>%
+  ggplot(aes(x = Week, y = value, colour = variable)) + 
+  geom_line() +
+  theme_fivethirtyeight() +
+  ggtitle("Ratio of cost of weighted\nmodel to cost of\nunweighted model")
+
+
+cors <- VaR %>%cc %>% summarise(Corr.unweighted = cor(abs(Actual_returns^2),abs(Unweighted_VaR^2)),
+                        Corr.weighted = cor(abs(Actual_returns^2),abs(Weighted_VaR^2)))
+cors[1,2]/cors[1,1]
+
+
+VaR %>% mutate(Difference = Weighted_VaR - Unweighted_VaR) %>%
+  ggplot(aes(x = Difference, y = Actual_returns)) +
+  geom_point() +
+  geom_smooth()
+
+
+
+# Compete with DCC GARCH --------------------------------------------------
+library(rmgarch)
+
+igarch11.spec <- ugarchspec(mean.model = list(armaOrder = c(0,0)),
+                           variance.model = list(garchOrder = c(1,1),model = "sGARCH"),
+                           distribution.model = "norm")
+
+dcc.garch11.spec  <- dccspec(uspec = multispec( replicate(6,igarch11.spec)), 
+                             dccOrder = c(1,1), 
+                             distribution = "mvnorm")
+
+cl1 <- makeCluster(spec = 4)
+# Be careful, this takes a few hours to estimate
+#rolling_fit <- dccroll(spec = dcc.garch11.spec, data = data1,n.ahead = 1, refit.every = 1, n.start = 150,refit.window = "expanding"  , cluster = cl1)
+covs <- rcov(rolling_fit)
+
+covlist <- plyr::alply(covs, 3)
+
+perc <- function(cov, n1 = 1000){
+  sims <- mvrnorm(n = n1, mu = rep(0, nrow(cov)), Sigma = cov)
+  quantile(apply(sims, 1, mean), 0.05)
+} 
+
+VaRDCC <- lapply(covlist, perc) %>% unlist
+VaRDCC.df <- data.frame(Week = seq(raw_data$Date[151], by = "week", length.out = length(VaRDCC)), VaRDCC)
+
+VaR2 <- left_join(VaR, VaRDCC.df)
+
+VaR2 %>% melt(id = "Week") %>% rename(Series = variable) %>%
+  mutate(Series = ifelse(Series=="Actual_returns", "Absolute\nActual returns", ifelse(Series=="Weighted_VaR", "Absolute\nVaR weighted\nmodel", ifelse(Series=="VaRDCC","Absolute\nVaR DCC","Absolute\nVaR unweighted\nmodel")))) %>%
+  ggplot(aes(x = Week, y = abs(value), colour = Series)) + 
+  geom_line() +
+  theme_fivethirtyeight() +
+  ggtitle("Same model, different weights\nVaR calculated with\nand without analogy weights\n") +
+  annotate("text", x = as.Date("2008-03-01"), y = 10, label = "Quicker to jump\nduring crisis", colour = 4, size = 3) +
+  annotate("text", x = as.Date("2010-01-01"), y = 7, label = "Quicker to fall\nafterwards", colour = 4, size = 3)
+
+
+absdiff <- function(x, y) abs(abs(x) - abs(y))
+
+VaR2  %>% cc%>% mutate(Unweighted_VaR = cumsum(absdiff(Unweighted_VaR,Actual_returns)),
+                Weighted_VaR = absdiff(Weighted_VaR, Actual_returns) %>% cumsum,
+                VaRDCC = absdiff(VaRDCC, Actual_returns) %>% cumsum) %>%
+  melt(id = "Week") %>%
+  ggplot(aes(x = Week, y = value, colour = variable)) + geom_line()
+  
