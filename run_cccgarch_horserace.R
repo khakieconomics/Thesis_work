@@ -186,7 +186,7 @@ cl1 <- makeCluster(spec = 4)
 # Be careful, this takes a few hours to estimate
 #rolling_fit <- dccroll(spec = dcc.garch11.spec, data = data1,n.ahead = 1, refit.every = 1, n.start = 150,refit.window = "expanding"  , cluster = cl1)
 covs <- rcov(rolling_fit)
-
+means <- fitted(rolling_fit)
 covlist <- plyr::alply(covs, 3)
 
 perc <- function(cov, n1 = 1000){
@@ -194,12 +194,19 @@ perc <- function(cov, n1 = 1000){
   quantile(apply(sims, 1, mean), 0.05)
 } 
 
-VaRDCC <- lapply(covlist, perc) %>% unlist
-VaRDCC.df <- data.frame(Week = seq(raw_data$Date[151], by = "week", length.out = length(VaRDCC)), VaRDCC)
+
+perc2 <- function(i,n1 = 1000){
+  sims <- mvrnorm(n = n1, mu = means[i,], Sigma = covlist[[i]])
+  quantile(apply(sims, 1, mean), 0.05)
+} 
+
+#VaRDCC <- lapply(covlist, perc) %>% unlist
+VaRDCC <- lapply(1:length(covlist), perc2) %>% unlist
+VaRDCC.df <- data.frame(Week = seq(raw_data$Date[152], by = "week", length.out = length(VaRDCC)), VaRDCC)
 
 VaR2 <- left_join(VaR, VaRDCC.df)
 
-VaR2 %>% melt(id = "Week") %>% rename(Series = variable) %>%
+VaR2 %>% filter(Week < "2011-01-01") %>%melt(id = "Week") %>% rename(Series = variable) %>%
   mutate(Series = ifelse(Series=="Actual_returns", "Absolute\nActual returns", ifelse(Series=="Weighted_VaR", "Absolute\nVaR weighted\nmodel", ifelse(Series=="VaRDCC","Absolute\nVaR DCC","Absolute\nVaR unweighted\nmodel")))) %>%
   ggplot(aes(x = Week, y = abs(value), colour = Series)) + 
   geom_line() +
