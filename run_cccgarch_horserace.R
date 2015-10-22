@@ -264,12 +264,14 @@ qlikeloss <- function(pred, actual) {
 
 # Loss function scores during the GFC
 
-gfcscores <- rbind(scorer(quadloss, dat = VaR2 %>% filter(Week < "2011-01-01")),
-                   scorer(absloss, dat = VaR2 %>% filter(Week < "2011-01-01")),
-                   scorer(habsloss, dat = VaR2 %>% filter(Week < "2011-01-01")),
-                   scorer(hsquareloss, dat = VaR2 %>% filter(Week < "2011-01-01")),
-                   scorer(qlikeloss, dat = VaR2 %>% filter(Week < "2011-01-01")))
+gfcscores <- rbind(scorer(quadloss, dat = VaR2 %>% filter(Week < "2010-01-01" & Week>"2007-12-31")),
+                   scorer(absloss, dat = VaR2 %>% filter(Week < "2010-01-01" & Week>"2007-12-31")),
+                   scorer(habsloss, dat = VaR2 %>% filter(Week < "2010-01-01" & Week>"2007-12-31")),
+                   scorer(hsquareloss, dat = VaR2 %>% filter(Week < "2010-01-01" & Week>"2007-12-31")),
+                   scorer(qlikeloss, dat = VaR2 %>% filter(Week < "2010-01-01" & Week>"2007-12-31")))
 rownames(gfcscores) <- c("Quadratic", "Absolute", "Het-adjusted_absolute", "Het-adjusted_square", "Qlike")
+
+knitr::kable(round(gfcscores, 2))
 
 # Whole period loss function scores
 wholescores <- rbind(scorer(quadloss, dat = VaR2),
@@ -278,3 +280,6 @@ wholescores <- rbind(scorer(quadloss, dat = VaR2),
                    scorer(hsquareloss, dat = VaR2),
                    scorer(qlikeloss, dat = VaR2))
 rownames(wholescores) <- c("Quadratic", "Absolute", "Het-adjusted_absolute", "Het-adjusted_square", "Qlike")
+
+
+knitr::kable(round(wholescores, 2))

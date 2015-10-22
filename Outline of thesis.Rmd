@@ -510,13 +510,25 @@ The unconditional mean prior is $\pmb{\mu} \sim \mathcal{N}(0,0.01)$, indicating
 
 This section assesses the predictive performance of the analogy-weighted CCC-GARCH model against two other models. The back-testing occurs over the Global Financial Crisis of 2008-9. The first benchmark model is an unweighted CCC-GARCH model of an identical specification to the weighted CCC-GARCH model, though with no weighting scheme. It illustrates the effect of including analogy weights. The second comparison model is the DCC-GARCH model of @engle2002dynamic, implemented using the `rmgarch` package of @Ghalanos_2014. The second comparison is useful as DCC-GARCH explicitly models the time variation in correlation structures---a major limitation in CCC-GARCH which analogy weighting should help overcome. 
 
-Assessing the performance of volatility models is not straightfoward. For one, over-predicting volatility has an opportunity cost (as it implies holding more low-yielding assets), while under-predicting volatility can lead to insufficient liquidity being held. Consequently a loss function needs to be specified, as discussed in @hou2012nonparametric. Common choices include a mean-absolute-error of the volatility forecasts, mean squared error of volatility forecasts, and heteroskedasticity-adjusted mean absolute error of @bollerslev1996periodic, which is defined as $HMAE = T^{-1}\sum_{t}\left|\frac{\epsilon_{t}^{2}}{\hat{\sigma}^{2}_t}-1\right|$, where $\epsilon_{t}^{2}$ are the squared errors of returns and $\hat{\sigma}^{2}_{t}$ is the volatility forecast for $t$. This last loss-function recognises that errors will tend to be higher in high-volatility regimes. All three loss functions are used for all three models. 
+Assessing the performance of volatility models is not straightfoward. For one, over-predicting volatility has an opportunity cost (as it implies holding more low-yielding assets), while under-predicting volatility can lead to insufficient liquidity being held. Consequently a loss function needs to be specified, as discussed in @hou2012nonparametric. Common choices include a mean-absolute-error of the volatility forecasts, mean squared error of volatility forecasts, and heteroskedasticity-adjusted mean absolute error of @bollerslev1996periodic, which is defined as $HMAE = T^{-1}\sum_{t}\left|\frac{\epsilon_{t}^{2}}{\hat{\sigma}^{2}_t}-1\right|$, where $\epsilon_{t}^{2}$ are the squared errors of returns and $\hat{\sigma}^{2}_{t}$ is the volatility forecast for $t\in(1,T)$. This last loss-function recognises that errors will tend to be higher in high-volatility regimes. All five loss functions are used to compare the performance of the three models. Results are in table XX below. 
 
-[Insert table of average loss function values]
+|Loss function| Unweighted| Weighted|   DCC|
+|:---------------------|----------:|--------:|-----:|
+|Quadratic loss|      34.31|    **32.52**| 38.54|
+|Mean absolute value|      18.39|    **17.20**| 21.56|
+|Heteroskedasticity-adjusted absolute value|       0.85|     0.86|  **0.83**|
+|Heteroskedasticity-adjusted quadratic loss|       1.34|     1.32|  **1.09**|
+|Log loss|       9.93|     **9.50**| 10.79|
 
-Another important consideration is how the models performed during the most accute phase of the Financial Crisis. 
+As can be seen, over the whole period 2007--2013, the weighted model outperforms in three of the five loss measures, with DCC-GARCH outperforming in the other two. The two measures on which the DCC-GARCH model outperformed especially penalises large negative errors that occur during low-volatility periods. Note that for the loss metrics in which the weighted model outperforms DCC-GARCH, the CCC-GARCH model also outperforms DCC-GARCH. As the DCC-GARCH model provides consistently higher volatility forecasts during the second half of the sample (which has lower volatility), its negative errors during this period are smaller in magnitude than for the other models. Another assessment can be made on the period during the global financial crisis of 2008-2009, when Value at Risk models performed quite poorly. When the assessment is restricted to this period, the 
 
-[Insert table of average loss function values for the height of the crisis]
+|Loss function  | Unweighted| Weighted|   DCC|
+|:---------------------|----------:|--------:|-----:|
+|Quadratic loss|      60.87|    **57.33**| 65.66|
+|Mean absolute value |      33.85|    **31.71**| 37.84|
+|Heteroskedasticity-adjusted absolute value |       0.94|     0.92|  **0.91**|
+|Heteroskedasticity-adjusted quadratic loss|       2.25|     1.85|  **1.75**|
+|Log loss|       8.13|     **7.45**|  8.53|
 
 This can be seen graphically below
 
