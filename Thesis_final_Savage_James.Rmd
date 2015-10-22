@@ -13,7 +13,7 @@ bibliography: thesis_bib.bibtex
 
 This paper introduces Analogy Weighting, a weighting scheme in which the most relevant historical episodes disproportionately influence parameter estimates in time series models. The algorithm makes use of the proximity matrix of a Random Forest to generate analogy weights. Consequently the weights are both supervised (the weights are measures of historical closeness in terms of the variables that matter to the prediction of the dependent variable), and metric-free. Using analogy weights improves the predictive performance of forecasting models. Also, analogy weights allow the researcher to acknowledge when the present state of the economy is unlike the historical data on which the model is estimated. During these phases, researchers may wish to allow ignorance priors to take over, blowing up prediction intervals. Applications are given to measuring core inflation and portfolio volatility. 
 
-# Introduction
+# Introduction[^1]
 
 In building reduced-form empirical macroeconomic models for policy simulation and forecasting *today*, how much history should be included? Too much history and the analyst risks estimating parameters that describe history well but have little relevance to today. With too little history, estimates risk missing out on useful information. Implicit in doing time-series work is an assumption that history provides a useful guide for parameterising economic models. 
 
@@ -92,13 +92,13 @@ The algorithm described below aims to overcome the difficulties associated with 
 
 The method works by building a weighting vector that relates one period in history (normally today) with all other periods in observed history. This score serves as a "distance between histories", and is defined on the characteristics of the economy or system at that point in time.
 
-To avoid having to define a metric that measures similarity between periods of history, the algorithm proposed makes use of the Random Forest (due to @breiman2001random), a tool from machine learning. A biproduct of fitting a Random Forest is a proximity matrix, which for all pairwise observations provides a measure of proximity in the Random Forest space. The main benefit of this tool is that the distance measure is the distance between observations *in terms of the variables that matter to the prediction of the outcome variable, and the importance of each variable can vary over time*. The algorithm is a time-series generalisation of the approach taken by @millersavagetan, in which Random Forest proximities are used to construct a matching estimator that is less sensitive to the Smith and Todd critique than is Propensity Score Matching.
+To avoid having to define a metric that measures similarity between periods of history, the algorithm proposed makes use of the Random Forest (due to @breiman2001random), a tool from machine learning. A biproduct of fitting a Random Forest is a proximity matrix, which for all pairwise observations provides a measure of proximity in the Random Forest space. The main benefit of this tool is that the distance measure is the distance between observations *in terms of the variables that matter to the prediction of the outcome variable, and the importance of each variable can vary over time*. The algorithm is a time-series generalisation of the approach taken by @millersavagetan, in which Random Forest proximities are used to construct a matching estimator that is less sensitive to the @smith2001reconciling critique than is Propensity Score Matching.
 
-## Introducing Random Forests
+# 2 The Analogy Weighting algorithm
 
-The algorithm described below uses the proximity matrix of a random forest. This chapter describes how the Random Forest works, starting by explaining the Classification and Regression Tree method, and then describes how the proximity matrix is estimated. Readers with a familiarity with these methods may skip to the next chapter.
+The algorithm described below uses the proximity matrix of a random forest. This chapter describes how the Random Forest works, starting by explaining the Classification and Regression Tree method, and then describes how the proximity matrix is estimated. Readers with a familiarity with these methods may skip to the end of the chapter.
 
-## Regression Trees
+## Intermediate input 1: Regression Trees
 
 Classification and Regression Trees, known as CART and due to @breiman1984classification, is a non-linear supervised recursive partitioning method. While this technique is not widely used in economics, it has recently found interest among some prominant researchers, such as @atheylectures, @wager2015estimation and @varian2014big. The aim of the technique is to partition a dataset according to the values of its covariates such that in each of the sub-groups the values of the dependent variable are more similar than in the parent group. The routine described below is a simplified version of the CART routine implemented in many software packages, though one that is much closer to the trees that make up a Random Forest. 
 
@@ -118,7 +118,7 @@ Once a tree is estimated, it can produce predicted values for a new observation 
 
 If two observations reach the same terminal node, they are said to be *proximate*. Two proximate observations are similar in terms of all variables on which splitting decisions are made.
 
-## Random Forests
+## Intermediate input 2: Random Forests
 
 While CART models are extremely easy to understand and visualise, they do tend to result in overfitting. They also do not capture smooth relationships well (there will only be as many distinct predicted values as there are terminal nodes). 
 
@@ -126,7 +126,7 @@ Random Forests @breiman2001random were designed to address these problems. They 
 
 To generate predicted values from a Random Forest, a new observation $x_{i}$ is passed down all trees, and the fitted value is the average of the fitted values in all trees. 
 
-# Random Forest proximity matrices
+## Intermediate input 3: Random Forest proximity matrices
 
 This paper is not concerned with the (impressive, see @caruana2006empirical) predictive abilities of the Random Forest. Rather, the Random Forest generates a "proximity matrix" that gives a distance between all observations in the dataset. 
 
@@ -134,7 +134,7 @@ When two observations fall into the same terminal node as one another, they are 
 
 The proximity matrix is an attractive candidate for a distance measure between historical observations. It does not require defining a distance metric or estimating importance weights for the covariates. Because the Random Forest is supervised (it has a dependent variable), the proximities can be thought of as the distance between observations *in terms of the variables that matter for the prediction of y*. And because of the robust manner in which a Random Forest is estimated, (stationary) independent variables whose relationship with $y$ is coincidental are less likely to influence the proximity score. Consequently, the analyst can afford to include many independent variables; those without a robust relationship will tend to be excluded. 
 
-# Analogy score---the algorithm
+## Estimating analogy scores---the algorithm
 
 This section describes the primary contribution of this paper: how to construct analogy scores. The aim of the following algorithm is to generate a vector corresponding to periods $t_{1},\dots,T$ that contains weights denoting the similarity between all historical periods and period $T$. Period $T$ will typically be chosen to be the most recent period, as the model builder will generally want to build a useful model of the current state of the economy. 
 
@@ -146,7 +146,9 @@ An aggregated proximity matrix is then constructed like so:
 initialise pmat as a T by T matrix of 0s
 
 for p in 1 to P:
-  build Random Forest model of the p-th variable in X using all other variables (and possibly lags of all variables), call this RF
+  build Random Forest model of the p-th variable in 
+  X using all other variables (and possibly lags of 
+  all variables), call this RF
   pmat = pmat + proximity matrix of RF
 end
 pmat = 1/P * pmat
@@ -198,10 +200,6 @@ densities <- dss %>% mutate(prox = prox/sum(prox)) %>%
   theme_bw(base_size = 11) +
   ggtitle("KDE of independent variables, weighted and unweighted\n(red = analogy weighted; black = unweighted)")
 
-png("covariate_density.png")
-densities
-dev.off()
-
 mod.weighted <- lm(dss$r ~ ., data = indvar %>% as.data.frame, weights = prox)
 mod.unweighted <- lm(dss$r ~ ., data = indvar %>% as.data.frame, subset = 1:nrow(dss)>(nrow(dss)-round(sum(prox))))
 df1 <- data.frame(Coef = names(coef(mod.weighted)), Coef_unweighted = coef(mod.unweighted), Coef_weighted = coef(mod.weighted)) %>% melt(id = "Coef") %>% as.data.frame
@@ -224,9 +222,7 @@ coefplot <- df1 %>% melt(id = 1:4, variable.name = "Bounds", value.name = "B") %
 
 This calculation is not straightforward; using analogy weighting can both increase and decrease the precision of parameter estimates. Because analogy scores discount dissimilar observations, they necessarily compress the support on which the parameters are estimated (see figures XX and XX2 in the next chapter). Taken alone, this should increase uncertainty in the parameter estimates. But the entire notion of proximity weighting is that irrelevant histories are just that---and co-movements during irrelevant periods simply confound our understanding of the true relationship today. If the co-movements between dependent and independent variables during analogous histories are less variable, then the precision of parameter estimates will *increase* under analogy weighting. 
 
-
-
-### An example of estimating proximity weights
+## An example of estimating proximity weights
 
 The application below illustrates how one could use analogy weights in estimating the parameters of a simple economic model, and discusses the consequences of modelling choices. 
 
@@ -247,36 +243,7 @@ A metric to evaluate the similarity of the current state to recorded history is 
 
 Note the three periods with the largest drop in relevant histories: the oil crisis of the 1970s, the recession of the early 1980s, and the Global Financial Crisis of the 2000s. Using analogy weights during these periods would involve learning less from history, and so being more unsure of model outputs. This feature is elaborated in the portfolio risk modelling example below. 
 
-```{r, message=F, echo = F, warning = F}
-library(dplyr)
-dss$prox <- prox
-
-uw <- dss %>% ggplot(aes(x = CPI.1, y = r)) +
-  geom_point() +
-  geom_smooth(method = "lm") +
-  theme_bw(base_size = 11) +
-  xlab("First lag of CPI") +
-  ylab("Interest rate") +
-  ggtitle("Interest-CPI correlation, no weighting")
-
-library(lubridate)
-dss <- dss %>% mutate(Decade = seq(from = as.Date("1960-07-01"), by = "quarter", length.out = nrow(dss)) %>% decimal_date %>% signif(digits = 3))
-w <- dss %>% ggplot(aes(x = CPI.1, y = r, weight = prox, size = prox, colour = as.factor(Decade))) +
-  geom_point() +
-  geom_smooth(method = "lm", colour = "black") +
-  theme_bw(base_size = 11) +
-  xlab("First lag of CPI") +
-  ylab("Interest rate") +
-  scale_size(guide = F)+
-  ggtitle("Interest-CPI correlation, with weighting")
-
-
-library(gridExtra)
-#grid.arrange(uw, w)
-```
-
-
-# Incorporating analogy weights into empirical models
+# 3: Incorporating analogy weights into empirical models
 
 This section gives an overview on ho  analogy weights may be used to help estimate parameteric models. The method by which weights can be incorporated will depend on the sort of model being estimated.
 
@@ -357,9 +324,9 @@ Estimating models by HMC provides several advantages over other Bayesian techniq
 
 Bayesian models can be estimated efficiently using the Stan software package (@stanmanual2015), which uses an implementation of HMC known as the No U-Turn Sampler (NUTS) of @homan2014no. This algorithm automatically chooses the three control parameters, $L$, $\epsilon$ and $\Sigma$, based on a series of adaptive iterations during the warm-up phase. Stan abstracts from the actual implementaion of HMC, allowing the user to instead specify the probability model being estimated. Users can call programs written in stan from within R, Python, Matlab, Julia or Stata.
 
-# 3 Applications of analogy weighting
+# 4 Applications of analogy weighting
 
-## 3a: An application to estimating core inflation
+## 4a: An application to estimating core inflation
 
 Most central banks have a mandate to fight inflation, either explicitly, as with a numerical inflation target, or implicitly, as with the Fed's "just do it" approach [@mishkin2001monetary]. The inflation that is typically targetted is a notion of "core inflation", the inflation that would remain after self-correcting blips have been ignored. This is a latent quantity, and must be estimated. Various methods of estimating core inflation exist---several are discussed below. 
 
@@ -401,7 +368,7 @@ While being fitted, the model calculates 1-year-ahead posterior predictions; the
 
 #### Weighted VAR
 
-The second model fitted takes exactly the same form as the VAR described above, with one difference: it is fitted using analogies weights. These weights are calculated as in Section XX above, using inflation, unemployment and the interest rate as the variables used to estimate analogies. 
+The second model fitted takes exactly the same form as the VAR described above, with one difference: it is fitted using analogies weights. These weights are calculated as described above, using inflation, unemployment and the interest rate as the variables used to estimate analogies. 
 
 #### Time-varying parameter VAR
 
@@ -417,14 +384,16 @@ with the coefficients themselves evolving over time. Take $\theta = [\mu, \mbox{
 \theta_{t} = \theta_{t-1} + \eta_{t}
 \]
 
-and $\eta\sim\mathcal{MVN}(0, \Sigma_{\eta})$. For identifiability, suitable structure must be put on $\Sigma_{\eta}$; in the work illustrated below, I assume that it is diagonal. 
+and $\eta\sim\mathcal{MVN}(0, \Sigma_{\eta})$. For identifiability, suitable structure must be put on $\Sigma_{\eta}$; in the work illustrated below, I assume that it is block diagonal. As above, the covariance matrix is modelled as the quadratic form of a scale vector and a correlation matrix, and the correlation matrix is given an LKJ prior with a large degrees of freedom parameter. This specification allows some covariance between parameters within the same block, but shrinks the covariance towards zero. 
 
 
 ### Data and method
 
-Two sets of data are used. The first set is the current release, which includes any revisions made to the original releases. The second set of data used come from the vintage data releases contained in the ALFRED database. These include the data that were available at each period in time.  The data series include quarterly observations of the annualised CPI growth rate for major cities; the national non-farm unemployment rate; and the annualised yield on 90 day Treasuries. The raw data series are monthly, and we need to convert these into quarterly observations. For CPI growth, the first month's value for each quarter is assigned to the whole quarter. For unemployment we also take the first month of each quarter. For treasury yields, the average value during each quarter is used. 
+The data series used include quarterly observations of the annualised CPI growth rate for major cities; the national non-farm unemployment rate; and the annualised yield on 90 day Treasuries. The raw data series are monthly, and we need to convert these into quarterly observations. For CPI growth, the first month's value for each quarter is assigned to the whole quarter. For unemployment we also take the first month of each quarter. For treasury yields, the average value during each quarter is used. The data come from the FRED database, and are the current releases (not archival data).[^2]
 
-Using data starting from 1960Q1, the three models are estimated up to a specified date. This date starts at 1970Q1 and extends in 1-year increments. At the end of each estimation period, the models generate 1-year ahead posterior predictive forecasts. These can be used to compare the predictive accuracy of each model. The models then produce a limiting posterior forecast of each series. For both the vanilla VAR and weighted VAR, the limiting forecast is simply the unconditional mean of each series. This is achieved by re-writing the VAR in lag notation: 
+Using observations starting 1960Q1, the two static parameter models are estimated up to a given date. This date starts at 1970Q1 and extends in 1-year increments. At the end of each estimation period, the models generate 1-year ahead posterior predictive forecasts. For the same comparison, the time-varying parameter model is estimated over the whole period, and one-year-ahead predictions are made using the estimated parameter values for a given period. These forecasts are used to compare the predictive accuracy of each model. 
+
+Each model then produces an estimate of the core or permanent inflation by taking a limiting posterior forecast of each series. For both the vanilla VAR and weighted VAR, the limiting forecast is simply the unconditional mean of each series. This is achieved by re-writing the VAR in lag notation: 
 
 \[
 (\mathbf{I} - \beta_{1}L - \beta_{2}L^{2})Y_{t} = \mu + \epsilon_{t}
@@ -440,13 +409,23 @@ The second equality holds because $L\mu = \mu$. For the time-varying VAR, this i
 
 ### Forecasting performance of the three approaches
 
-A 
+The three models are estimated as described above, yielding two sets of forecasts: the first being one-year-ahead forecasts. The accuracy of the 1-year-ahead forecasts can be measured by comparing against history. The second set of forecasts are the "permanent components" of the series---what is left when the model has been simulated into the distant future. It is from these permanent forecasts that we derive an estimate of core inflation. Yet the quality of short-run forecasts provide some guidance about which model's estimates to believe. 
 
+The table below contains the root mean-squared-error of the one-year ahead forecasts. These show that the TVP-VAR and the weighted VAR both perform considerably better than the unweighted VAR.
 
-### Fed responses to permanent inflation
+[Insert table]
 
+Another way of illustrating the comparative performance of the models is with the cumulative RMSE, as in the figure below. 
 
-# 3b: An application to portfolio risk management
+[Insert cumulative RMSE figure]
+
+The results from this horse-race suggest that including analogy weights in a time-series model can significantly improve its predictive performance. In this test, the performance of the weighted model approaches (and in some cases exceeds) that of a more complex time-varying-parameter model.
+
+### Core inflation and the Fed's response
+
+The model comparison above suggests that both the TVP-VAR and analogy-weighted VAR were good candidates for a forecasting model, and may therefore be useful for estimating core inflation. Yet the two models have quite different interpretations. Under the TVP-VAR model, 
+
+# 4b: An application to portfolio risk management
 
 Portfolio risk managers are tasked with holding sufficient cash to insure that asset purchases and withdrawals from the portfolio can be paid for even when asset prices fall. This requires generating estimates of Value At Risk (VaR), a measure defined as the minimum loss expected in some event that should occur with a given frequency over a period. For example, if a portfolio has $5M VaR over 1 day at 95%, this would mean that not more than one in twenty days should involve losses greater than $5M. 
 
@@ -556,3 +535,6 @@ The main problem with the method is that the weights do not come from a generati
 The conjecture made (but not shown) in this paper is that *relevant periods*---relevance defined on observed variables---should help more in estimating present parameter values. Underlying this is an assumption that the parameter values themselves are in part determined by the values of the observed variables used to construct analogy scores. A sufficient test of the method in this paper would be to simulate data from a generative model whose (reduced form) parameters are themselves functions of the variables, and check whether analogy score weighting succeeds at estimating these parameters. This is left to future research. 
 
 # References
+[^1]: I would like to thank my advisor, Chris Edmond, for his input. Errors and conceptual shortcomings are all my own. Also thanks to Sue Marquez, Jim Minifie, Eugene Dubossarsky, Jack Mullumby, David Stephan, David Miller and Sarah Tan for their input at various stages in the project. 
+
+[^2]: In an experiment, I sourced the archival series from ALFRED, and back-tested the out-of-sample predictive performance of both the vanilla VAR and analogy-weighted VAR. 1-year-ahead forecasts of inflation and the interest rate were significantly lower for the weighted model, though unemployment forecasts were no better. These results are omitted because of the high computational cost in re-fitting the TVP-VAR model to the archival data. 

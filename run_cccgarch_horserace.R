@@ -206,6 +206,11 @@ VaRDCC.df <- data.frame(Week = seq(raw_data$Date[152], by = "week", length.out =
 
 VaR2 <- left_join(VaR, VaRDCC.df)
 
+VaR2  %>% cc %>% summarise(Unweighted = mean(Actual_returns<Unweighted_VaR),
+                           Weighted = mean(Actual_returns<Weighted_VaR),
+                           DCC = mean(Actual_returns<VaRDCC))
+
+save(VaR2,file = "VaR2.RData")
 VaR2 %>% filter(Week < "2011-01-01") %>%melt(id = "Week") %>% rename(Series = variable) %>%
   mutate(Series = ifelse(Series=="Actual_returns", "Absolute\nActual returns", ifelse(Series=="Weighted_VaR", "Absolute\nVaR weighted\nmodel", ifelse(Series=="VaRDCC","Absolute\nVaR DCC","Absolute\nVaR unweighted\nmodel")))) %>%
   ggplot(aes(x = Week, y = value, colour = Series)) + 
@@ -281,5 +286,5 @@ wholescores <- rbind(scorer(quadloss, dat = VaR2),
                    scorer(qlikeloss, dat = VaR2))
 rownames(wholescores) <- c("Quadratic", "Absolute", "Het-adjusted_absolute", "Het-adjusted_square", "Qlike")
 
-
+VaR2$Week
 knitr::kable(round(wholescores, 2))
