@@ -208,7 +208,7 @@ VaR2 <- left_join(VaR, VaRDCC.df)
 
 VaR2 %>% filter(Week < "2011-01-01") %>%melt(id = "Week") %>% rename(Series = variable) %>%
   mutate(Series = ifelse(Series=="Actual_returns", "Absolute\nActual returns", ifelse(Series=="Weighted_VaR", "Absolute\nVaR weighted\nmodel", ifelse(Series=="VaRDCC","Absolute\nVaR DCC","Absolute\nVaR unweighted\nmodel")))) %>%
-  ggplot(aes(x = Week, y = abs(value), colour = Series)) + 
+  ggplot(aes(x = Week, y = value, colour = Series)) + 
   geom_line() +
   theme_fivethirtyeight() +
   ggtitle("Same model, different weights\nVaR calculated with\nand without analogy weights\n") +
@@ -223,4 +223,58 @@ VaR2  %>% cc%>% mutate(Unweighted_VaR = cumsum(absdiff(Unweighted_VaR,Actual_ret
                 VaRDCC = absdiff(VaRDCC, Actual_returns) %>% cumsum) %>%
   melt(id = "Week") %>%
   ggplot(aes(x = Week, y = value, colour = variable)) + geom_line()
-  
+
+
+# Define the scoring function
+
+scorer <- function(FUN, dat){
+  Unweighted <- FUN(dat$Unweighted_VaR, dat$Actual_returns)
+  Weighted <- FUN(dat$Weighted_VaR, dat$Actual_returns)
+  DCC <- FUN(dat$VaRDCC, dat$Actual_returns)
+  data.frame(Unweighted, Weighted, DCC)
+}
+
+# Define the loss functions
+
+# Quadratic loss function
+quadloss <- function(pred, actual) {
+  (1/sum(!is.na(pred)))*sum((actual - pred)^2, na.rm = T)
+}
+
+# Absolute loss function
+absloss <- function(pred, actual) {
+  (1/sum(!is.na(pred)))*sum(abs(actual^2 - pred^2), na.rm = T)
+}
+
+# heteroskedasticity-adjusted absolute loss function
+habsloss <- function(pred, actual) {
+  (1/sum(!is.na(pred)))*sum(abs((actual^2)/(pred^2) - 1), na.rm = T)
+}
+
+# heteroskedasticity-adjusted quadratic loss function
+hsquareloss <- function(pred, actual) {
+  (1/sum(!is.na(pred)))*sum(((actual^2)/(pred^2) - 1)^2, na.rm = T)
+}
+
+# Logarithmic loss function
+qlikeloss <- function(pred, actual) {
+  (1/sum(!is.na(pred)))*sum(log((actual^2)/(pred^2))^2, na.rm = T)
+}
+
+
+# Loss function scores during the GFC
+
+gfcscores <- rbind(scorer(quadloss, dat = VaR2 %>% filter(Week < "2011-01-01")),
+                   scorer(absloss, dat = VaR2 %>% filter(Week < "2011-01-01")),
+                   scorer(habsloss, dat = VaR2 %>% filter(Week < "2011-01-01")),
+                   scorer(hsquareloss, dat = VaR2 %>% filter(Week < "2011-01-01")),
+                   scorer(qlikeloss, dat = VaR2 %>% filter(Week < "2011-01-01")))
+rownames(gfcscores) <- c("Quadratic", "Absolute", "Het-adjusted_absolute", "Het-adjusted_square", "Qlike")
+
+# Whole period loss function scores
+wholescores <- rbind(scorer(quadloss, dat = VaR2),
+                   scorer(absloss, dat = VaR2),
+                   scorer(habsloss, dat = VaR2),
+                   scorer(hsquareloss, dat = VaR2),
+                   scorer(qlikeloss, dat = VaR2))
+rownames(wholescores) <- c("Quadratic", "Absolute", "Het-adjusted_absolute", "Het-adjusted_square", "Qlike")
