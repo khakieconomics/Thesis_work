@@ -169,7 +169,34 @@ Two of the random forest's tuning parameters have the greatest influence on prox
 \mbox{instability score} = \mbox{abs}\left(\frac{\partial \frac{1}{n^{2}}\sum_{i}\sum_{j}\mbox{proximity}_{i,j}}{\partial \mbox{ntree}}\right)
 \]
 
-This is illustrated below. As is clear, there are diminishing returns to the number of trees.  
+This is illustrated in the figure below. As is clear, there are diminishing returns to the number of trees.
+
+```{r, echo = F, warning=F, message=F, cache=T}
+load("quarterly_data.RData")
+library(dplyr); library(ggplot2); library(ggthemes); library(randomForest)
+dss <- dat1 %>% as.data.frame %>%
+  mutate(Unemp.1 = lag(Unemp),
+         Unemp.2 = lag(Unemp, 2),
+         CPI.1 = lag(CPI),
+         CPI.2 = lag(CPI, 2),
+         r.1 = lag(r),
+         r.2 = lag(r, 2)) %>% filter(!is.na(CPI.2))
+indvar <- dss %>% dplyr::select(Unemp.1, Unemp.2, r.1, r.2, CPI.1, CPI.2) %>% as.data.frame %>% as.matrix
+
+
+out_ntree <- data_frame(Trees = seq(300, 8000, by = 300), `Change in proximity` = NA)
+for(i in 1:(nrow(out_ntree)-1)){
+  prox1 <- randomForest(r ~ Unemp.1 + Unemp.2 + CPI.1 + CPI.2 + r.1 + r.2, data = dss, proximity = T, ntree = out_ntree$Trees[i], nodesize = 40)$proximity
+  prox2 <- randomForest(r ~ Unemp.1 + Unemp.2 + CPI.1 + CPI.2 + r.1 + r.2, data = dss, proximity = T, ntree = out_ntree$Trees[i+1], nodesize = 40)$proximity
+  out_ntree[i,2] <- mean(abs(prox2-prox1))
+}
+
+out_ntree %>% ggplot(aes(x = Trees, y = `Change in proximity`)) +
+  geom_line() +
+  theme_fivethirtyeight() +
+  ggtitle("Change in proximity from increasing\nnumber of trees")
+
+```
 
 The second main tuning parameter that users should be aware of is the size of terminal nodes in each tree in the random forest, `nodesize`. The default is that trees should grow until a split would not decrease the loss, or until a split would result in a terminal node containing fewer observations than the minimum. The default node size value in `R`'s implementation, `randomForest`, is 5. Increasing this size results in greater average proximity between observations, as the probability that any two observations share a terminal node is greater.
 
@@ -179,7 +206,7 @@ Choosing the optimal terminal node size will involve making a trade-off between 
 
 ```{r, echo = F, message = F, warning = F}
 
-library(randomForest); library(dplyr); library(ggplot2); library(reshape2)
+require(memisc); library(randomForest); library(dplyr); library(ggplot2); library(reshape2)
 load("quarterly_data.RData")
 
 dss <- dat1 %>% as.data.frame %>%
@@ -189,13 +216,13 @@ dss <- dat1 %>% as.data.frame %>%
          CPI.2 = lag(CPI, 2),
          r.1 = lag(r),
          r.2 = lag(r, 2)) %>% filter(!is.na(CPI.2))
-indvar <- dss %>% select(Unemp.1, Unemp.2, r.1, r.2, CPI.1, CPI.2) %>% as.data.frame %>% as.matrix
+indvar <- dss %>% dplyr::select(Unemp.1, Unemp.2, r.1, r.2, CPI.1, CPI.2) %>% as.data.frame %>% as.matrix
 
 rf1 <- randomForest(r ~ Unemp.1 + Unemp.2 + CPI.1 + CPI.2 + r.1 + r.2, data = dss, proximity = T, ntree = 5000, nodesize = 40, oob.prox = T)
 prox <- rf1$proximity[nrow(rf1$proximity),]
 
 densities <- dss %>% mutate(prox = prox/sum(prox)) %>%
-  select(-Unemp, -r, -CPI) %>% melt(id = "prox") %>% 
+  dplyr::select(-Unemp, -r, -CPI) %>% melt(id = "prox") %>% 
   ggplot(aes(x = value)) +
   geom_density(aes(weight = 1/length(prox))) +
   geom_density(aes(weight = prox/sum(prox)), colour  = "red") +
@@ -475,17 +502,26 @@ Does the Federal Reserve adjust interest rates due to views about core inflation
 ```{r, echo = F, message=F, warning=F, results="asis"}
 cc <- function(x) x[complete.cases(x),]
 out_mini <- out_lr %>% left_join(dataset.q1) %>% left_join(tvp_perm) %>%
-  select(r, CPI1, CPI3) %>% cc %>% 
+  dplyr::select(r, CPI1, CPI3) %>% cc %>% 
   rename(AW_core_inf = CPI1,
          BL_core_inf = CPI3)
 
 mod1 <- lm(r ~ AW_core_inf, data = out_mini)
 mod2 <- lm(r ~ BL_core_inf, data = out_mini)
 mod3 <- lm(r ~ ., data = out_mini)
-library(xtable)
-options(xtable.comment = FALSE)
-xtable(summary(mod3), type = "html")
 
+```
+
+\newpage
+
+#### Do both historical analogy and Bayesian learning estimated inform current interest rates?
+```{r, warning=F, message=F, echo = F}
+library(pander)
+mtable123 <- mtable('Model 1' = mod1,
+            'Model 2' = mod2,
+            'Model 3' = mod3,
+            summary.stats = c('R-squared','F','p','N'))
+pander(mtable123)
 ```
 
 
