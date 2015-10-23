@@ -31,7 +31,7 @@ dataset.q <- dataset %>% group_by(quarter = as.yearqtr(Date) %>% as.Date) %>%
 
 dat1 <- dataset.q[,-1]
 
-dss <- dataset.q %>%
+dss <- dataset.q1 %>%
   mutate(Unemp.1 = lag(Unemp),
          Unemp.2 = lag(Unemp, 2),
          CPI.1 = lag(CPI),
@@ -45,10 +45,10 @@ rf3 <- randomForest(r ~ Unemp.1 + Unemp.2 + CPI.1 + CPI.2 + r.1 + r.2, data = ds
 proxmat <- (rf1$proximity + rf2$proximity + rf3$proximity)/3
 proxmat[upper.tri(proxmat, diag  = T)] <- 0
 
-weights <- data.frame(w = c(0,0,proxmat[nrow(proxmat),]), d = dataset.q$quarter)
+weights <- data.frame(w = c(0,0,proxmat[nrow(proxmat),]), d = dataset.q1$quarter)
 proxmat <- as.data.frame(proxmat)
-proxmat$Date <- dataset.q$quarter[-1:-2]
-names(proxmat)[-length(names(proxmat))] <- paste0("X", dataset.q$quarter[-1:-2])
+proxmat$Date <- dataset.q1$quarter[-1:-2]
+names(proxmat)[-length(names(proxmat))] <- paste0("X", dataset.q1$quarter[-1:-2])
 
 proxmat.m <- melt(proxmat, id = "Date")
 proxmat.m$variable <- as.Date(gsub("X", "", proxmat.m$variable))
@@ -56,15 +56,15 @@ proxmat.m$variable <- as.Date(gsub("X", "", proxmat.m$variable))
 # Plot of analogies -------------------------------------------------------
 
 
-png("analogy_matrix.png")
+pdf("analogy_matrix.pdf")
 proxmat.m %>% ggplot(aes(x = Date, y = variable, fill = value)) + geom_tile() +
   scale_fill_gradient(low = "white", high = "red", "Analogy score\n") +
-  theme_bw(base_size = 11) +
   xlab("Date") +
   ylab("Comparison Date") +
   scale_x_date(expand = c(0,0)) +
   scale_y_date(expand = c(0,0)) +
   coord_flip() +
+  ggthemes::theme_fivethirtyeight(base_size = 11) +
   ggtitle("How good an analogy for 'Date'\nis 'Comparison Date'?\n")
 dev.off()
 
@@ -75,12 +75,12 @@ proxmat.d[lower.tri(proxmat.d, diag = T)] <- NA
 
 prop.history <- apply(proxmat.d, 2, function(x) sum(x, na.rm = T)/sum(!is.na(x)))[-1]
 
-prop.history <- data.frame(Date = dataset.q$quarter[-1:-4], prop.history)
+prop.history <- data.frame(Date = dataset.q1$quarter[-1:-4], prop.history)
 
-png("relevant_histories.png")
+pdf("relevant_histories.pdf")
 prop.history %>% filter(Date>"1970-01-01") %>% ggplot(aes(x = Date, prop.history))+ 
   geom_line(size = 1) +
-  theme_bw(base_size = 11) +
+  ggthemes::theme_fivethirtyeight(base_size = 11) +
   ylab("Proportion") +
   scale_y_continuous(expand = c(0,0), limits = c(0,0.5)) +
   ggtitle("At each point in time, how much recorded economic\nhistory was relevant?")

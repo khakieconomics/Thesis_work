@@ -79,7 +79,7 @@ and the innovations to both the VAR and state processes are multivariate normal.
 
 Given priors on $\beta_{0}$, $\Sigma$ and $Q$, the papers above estimate the time-varying $\beta$ using a Kalman Filter. One modification (as in @koop2013large) is to include in the filter a "forgetting factor"---a parameter that determines how much past information influences the current estimate of $\beta_{t}$. The implicit assumption made when using this approach is that the distant past is irrelevant to parameter estimates today. 
 
-Both methods described above---regime shifting models and continuous-state-space models---offer some real benefits to a researcher modelling unobserved structural changes. Yet the models have drawbacks. Like typical reduced-form models, discrete regime-switching models are unable to generate states that have not been observed. If the true data generating process has not revealed all her states, these methods are prone to inductive errors (Popper, 1934). In contrast, continuous-state models give positive weight to the possibility of as-yet unobserved states. But they are hard to implement, and tend to be very richly parameterised. A large number of parameters relative to the number of observations requires that informative priors must be used to estimate continuous-state models (see Koop and Korobilis, 2009). 
+Both methods described above---regime shifting models and continuous-state-space models---offer some real benefits to a researcher modelling unobserved structural changes. Yet the models have drawbacks. Like typical reduced-form models, discrete regime-switching models are unable to generate states that have not been observed. If the true data generating process has not revealed all her states, these methods are prone to inductive errors. In contrast, continuous-state models give positive weight to the possibility of as-yet unobserved states. But they are hard to implement, and tend to be very richly parameterised. A large number of parameters relative to the number of observations requires that informative priors must be used to estimate continuous-state models (see Koop and Korobilis, 2009). 
 
 These problems are not unique to econometrics. In the machine learning and signal processing literature, "time-series-clustering" techniques aim to group time-series together into clusters, each of which should contain time-series that behave similarly. When researchers are looking for analogous periods of a given time-series, they use "subsequence clustering", in which a rolling window generates many time-series which can be clustered. 
 
@@ -206,7 +206,7 @@ Choosing the optimal terminal node size will involve making a trade-off between 
 
 ```{r, echo = F, message = F, warning = F}
 
-require(memisc); library(randomForest); library(dplyr); library(ggplot2); library(reshape2)
+library(memisc); library(randomForest); library(dplyr); library(ggplot2); library(reshape2); library(ggthemes);
 load("quarterly_data.RData")
 
 dss <- dat1 %>% as.data.frame %>%
@@ -227,8 +227,8 @@ densities <- dss %>% mutate(prox = prox/sum(prox)) %>%
   geom_density(aes(weight = 1/length(prox))) +
   geom_density(aes(weight = prox/sum(prox)), colour  = "red") +
   facet_grid(variable~., scales = "free") +
-  theme_bw(base_size = 11) +
-  ggtitle("KDE of independent variables, weighted and unweighted\n(red = analogy weighted; black = unweighted)")
+  theme_fivethirtyeight(base_size = 11) +
+  ggtitle("KDE of independent variables,\nweighted and unweighted\n(red = analogy weighted; black = unweighted)")
 
 mod.weighted <- lm(dss$r ~ ., data = indvar %>% as.data.frame, weights = prox)
 mod.unweighted <- lm(dss$r ~ ., data = indvar %>% as.data.frame, subset = 1:nrow(dss)>(nrow(dss)-round(sum(prox))))
@@ -246,11 +246,16 @@ coefplot <- df1 %>% melt(id = 1:4, variable.name = "Bounds", value.name = "B") %
   geom_line(aes(y = B, group = Coef), position = "dodge") +
   facet_grid(.~variable) +
   coord_flip() +
-  theme_bw(base_size = 11)
+  theme_fivethirtyeight(base_size = 11)
 
 ```
 
-This calculation is not straightforward; using analogy weighting can both increase and decrease the precision of parameter estimates. Because analogy scores discount dissimilar observations, they necessarily compress the support on which the parameters are estimated (see figures XX and XX2 in the next chapter). Taken alone, this should increase uncertainty in the parameter estimates. But the entire notion of proximity weighting is that irrelevant histories are just that---and co-movements during irrelevant periods simply confound our understanding of the true relationship today. If the co-movements between dependent and independent variables during analogous histories are less variable, then the precision of parameter estimates will *increase* under analogy weighting. 
+This calculation is not straightforward; using analogy weighting can both increase and decrease the precision of parameter estimates. Because analogy scores discount dissimilar observations, they necessarily compress the support on which the parameters are estimated (see the figure below). Taken alone, this should increase uncertainty in the parameter estimates. But the entire notion of proximity weighting is that irrelevant histories are just that---and co-movements during irrelevant periods simply confound our understanding of the true relationship today. If the co-movements between dependent and independent variables during analogous histories are less variable, then the precision of parameter estimates may *increase* under analogy weighting. Out-of-sample forecasting testing is one method of evaluating the relevance of parameter estimates, and is used in the examples below. 
+
+```{r, echo = F, message = F, warning = F}
+densities + theme(axis.text.y = element_blank(),
+            axis.ticks = element_blank())
+```
 
 ## An example of estimating proximity weights
 
@@ -305,7 +310,7 @@ In Bayesian analysis, the aim is to conduct inference about a posterior distribu
 
 The solution under Markov Chain Monte Carlo is to provide draws from the posterior, which allows numerical integration to be used. That is, if an $N$-long "chain" of parameter esimates $\beta_{i}$ can be drawn from the true posterior, then any given statistic about that parameter can be calculated. For example, an estimate of the parameter mean can be estimated using $\bar\beta = \frac{1}{N}\sum_{i}\beta_{i}$. A more detailed description including the Markov Chain theory behind the technique can be found in Greenberg (2012). 
 
-Hamiltonian Monte Carlo (as described in @betancourt2015hamiltonian and the @stanmanual2015) provides draws from the posterior by specifying a joint probability between parameters $\theta$ and an auxiliary variable $\rho$, $p(\rho, \theta|y, X) = p(rho|\theta, X, y)\times p(\theta|X, y)$. In most applications $\rho$ comes from a multivariate normal distribution with covariance matrix $\Sigma$, $\rho\sim\mathcal{MVN}(0, \Sigma)$ and so is independent of $\theta,x,y$. Borrowing from Hamiltonian Mechanics, the joint distribution defines a Hamiltonian: 
+Hamiltonian Monte Carlo (as described in @betancourt2015hamiltonian and the @stanmanual2015) provides draws from the posterior by specifying a joint probability between parameters $\theta$ and an auxiliary variable $\rho$, $p(\rho, \theta|y, X) = p(\rho|\theta, X, y)\times p(\theta|X, y)$. In most applications $\rho$ comes from a multivariate normal distribution with covariance matrix $\Sigma$, $\rho\sim\mathcal{MVN}(0, \Sigma)$ and so is independent of $\theta,x,y$. Borrowing from Hamiltonian Mechanics, the joint distribution defines a Hamiltonian: 
 
 \[
 H(\rho, \theta) = -\log p(\rho, \theta) = -\log p(\rho) - \log p(\theta|y, X) = T + V
@@ -398,7 +403,7 @@ While being fitted, the model calculates 1-year-ahead posterior predictions; the
 
 #### Weighted VAR
 
-The second model fitted takes exactly the same form as the VAR described above, with one difference: it is fitted using analogies weights. These weights are calculated as described above, using inflation, unemployment and the interest rate as the variables used to estimate analogies. 
+The second model fitted takes exactly the same form as the VAR described above, with one difference: it is fitted using analogy weights. These weights are calculated as described above, using inflation, unemployment and the interest rate as the variables used to estimate analogies. 
 
 #### Time-varying parameter VAR
 
@@ -414,12 +419,12 @@ with the coefficients themselves evolving over time. Take $\theta = [\mu, \mbox{
 \theta_{t} = \theta_{t-1} + \eta_{t}
 \]
 
-and $\eta\sim\mathcal{MVN}(0, \Sigma_{\eta})$. For identifiability, suitable structure must be put on $\Sigma_{\eta}$; in the work illustrated below, I assume that it is block diagonal. As above, the covariance matrix is modelled as the quadratic form of a scale vector and a correlation matrix, and the correlation matrix is given an LKJ prior with a large degrees of freedom parameter. This specification allows some covariance between parameters within the same block, but shrinks the covariance towards zero. 
+and $\eta\sim\mathcal{MVN}(0, \Sigma_{\eta})$. For identifiability, suitable structure must be put on $\Sigma_{\eta}$; as with the static VARs, I assume that it is block diagonal. The covariance matrix is modelled as the quadratic form of a scale vector and a correlation matrix, and the correlation matrix is given an LKJ prior with a large degrees of freedom parameter. This specification allows some covariance between parameters within the same block, but shrinks the covariance towards zero. 
 
 
 ### Data and method
 
-The data series used include quarterly observations of the annualised CPI growth rate for major cities; the national non-farm unemployment rate; and the annualised yield on 90 day Treasuries. The raw data series are monthly, and we need to convert these into quarterly observations. For CPI growth, the first month's value for each quarter is assigned to the whole quarter. For unemployment we also take the first month of each quarter. For treasury yields, the average value during each quarter is used. The data come from the FRED database, and are the current releases (not archival data).[^2]
+The data series used include quarterly observations of the quarterly CPI growth rate for major cities; the national non-farm unemployment rate; and the annualised yield on 90 day Treasuries. The raw data series are monthly, and we need to convert these into quarterly observations. For CPI growth, the first month's value for each quarter is assigned to the whole quarter. For unemployment we also take the first month of each quarter. For treasury yields, the average value during each quarter is used. The data come from the FRED database, and are the current releases (not archival data).[^2]
 
 Using observations starting 1960Q1, the two static parameter models are estimated up to a given date. This date starts at 1970Q1 and extends in 1-year increments. At the end of each estimation period, the models generate 1-year ahead posterior predictive forecasts. For the same comparison, the time-varying parameter model is estimated over the whole period, and one-year-ahead predictions are made using the estimated parameter values for a given period. These forecasts are used to compare the predictive accuracy of each model. 
 
@@ -503,7 +508,7 @@ Does the Federal Reserve adjust interest rates due to views about core inflation
 cc <- function(x) x[complete.cases(x),]
 out_mini <- out_lr %>% left_join(dataset.q1) %>% left_join(tvp_perm) %>%
   dplyr::select(r, CPI1, CPI3) %>% cc %>% 
-  rename(AW_core_inf = CPI1,
+  dplyr::rename(AW_core_inf = CPI1,
          BL_core_inf = CPI3)
 
 mod1 <- lm(r ~ AW_core_inf, data = out_mini)
@@ -576,7 +581,7 @@ The second big improvement is an LKJ prior for the correlation matrix with a sma
 
 The functional form of of the augmented CCC-GARCH model is identical to the one as described above---all that differs is the estimation technique. To provide Bayesian inference about the model, prior distributions are given to the parameters. Elements of $\mu$, $\mbox{diag}(A)$ and $\mbox{diag}(B)$ are all given univariate normal priors. For stability, it is necessary for elements of $\mbox{diag}(A)$ to be greater than 1, and $\mbox{diag}(B)\leq I- \mbox{diag}(A)$. The initial values of the scale parameter, $\tau_{0}$, are given half Cauchy priors, which allow for large initial variances. Finally, the correlation matrix $\Omega$ is given an LKJ prior with a degrees of freedom parameter close to 1; this has the effect of increasing modelled correlations during unprecedented phases. Weights are incorporated as described above---by weighting each observation's contribution to the log posterior. 
 
-To demonstrate the performance of the two techniques, an equal-weighted portfolio is constructed from common stocks in Apple (AAPL), IMB (IBM), Google (GOOGL), Ford (FORD), Bank of America (BAC), and Johnson and Johnson (JNJ). Two versions of a CCC-GARCH(1,1) model are estimated on weekly log returns in successive 1-week increments: an unweighted version, and one using analogy weights. Both models are then tasked with generating estimates of 1-week ahead 95% VaR for the second half of 2008 using true out-of-sample prediction. That is, both models are estimated using data from August 22, 2004 through June 29, 2008, and produce VaR estimates for the week ended July 6 2008. For the next iteration, models are estimated from the same start-date up to July 6, and make another 1-week-ahead forecast. This is continued until the end of 2010; the test period covers the most turbulent period of the Global Financial Crisis of 2007-8.
+To demonstrate the performance of the two techniques, an equal-weighted portfolio is constructed from common stocks in Apple (AAPL), IMB (IBM), Google (GOOGL), Ford (FORD), Bank of America (BAC), and Johnson and Johnson (JNJ). Two versions of a CCC-GARCH(1,1) model are estimated on weekly log returns in successive 1-week increments: an unweighted version, and one using analogy weights. Both models are then tasked with generating estimates of 1-week ahead 95% VaR for the period July 2007 through June 2013 using true out-of-sample prediction. For example, the predicted volatility for the week of July 6 2008 would involve estimating using data from August 22, 2004 through June 29, 2008 only. For the next iteration, models are estimated from the same start-date up to July 6, and make another 1-week-ahead forecast. This is continued until the end of June 2013; the test period covers the most turbulent period of the Global Financial Crisis of 2008-9.
 
 Week-ahead VaR estimates are generated by generating 1-week ahead posterior predictive distributions for all stocks in the portfolio. The posterior predictive distribution is similar to a classical forecast, but allows for uncertainty in the model parameters. In each HMC draw, the projections for each stock are aggregated to construct a portfolio return; the VaR measure is then the bottom 5th percentile of the resulting distribution. For the benchmark DCC-GARCH model, 1-week-ahead forecasts of the mean vector and covariance matrix are taken. These parameters inform a multivariate normal distribution, from which 1000 draws are taken, and the portfolio return calculated for each draw. The 5th percentile of portfolio returns is then stored. For a correctly specified model, losses should not exceed VaR more than one in twenty weeks; the evaluation period involves the Global Financial Crisis, a period over which Value at Risk models notoriously underperformed [@jorion2009risk]. 
 
@@ -616,7 +621,7 @@ The performance of the three models can be seen in the figure below. Two things 
 ```{r, echo = F, warning = F}
 library(ggplot2); library(dplyr); library(ggthemes)
 load("VaR2.RData")
-VaR2 %>% filter(Week < "2011-01-01") %>%melt(id = "Week") %>% rename(Series = variable) %>%
+VaR2 %>% filter(Week < "2011-01-01") %>%melt(id = "Week") %>% dplyr::rename(Series = variable) %>%
   mutate(Series = ifelse(Series=="Actual_returns", "Actual returns", ifelse(Series=="Weighted_VaR", "Weighted\nmodel", ifelse(Series=="VaRDCC","DCC model","Unweighted\nmodel")))) %>%
   ggplot(aes(x = Week, y = value, colour = Series)) + 
   geom_line() +
