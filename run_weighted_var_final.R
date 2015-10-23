@@ -180,6 +180,44 @@ out3 %>% melt(id = "Date") %>%#head
   ggtitle("If you train forecasting models on\nrelevant data only, you get better forecasts\n")
 
 
+# Forecast quality table --------------------------------------------------
+
+load("tvp_forecast_1y.RData")
+tvp_forecast <- test_forecast %>% cc %>% select(variable, Date, median) %>% dcast(Date ~variable) %>%
+  rename(quarter = Date)
+names(tvp_forecast)[-1] <- paste0(names(tvp_forecast)[-1], "3")
+
+out_all <- left_join(out, tvp_forecast) %>% cc
+
+out_errors <- out_all 
+
+# Generate errors
+out_errors[,c(5, 8, 13)] <- out_errors[,c(5, 8, 13)] - out_errors[,c(2,2,2)]
+out_errors[,c(6,9,11)] <- out_errors[,c(6,9,11)] - out_errors[,c(3,3,3)]
+out_errors[,c(7,10,12)] <- out_errors[,c(7,10,12)] - out_errors[,c(4,4,4)]
+out_errors <- out_errors[,-2:-4]
+
+library(lubridate)
+
+out_errors %>% group_by(decade = paste0(str_extract(quarter %>% as.character, "[0-9]{3}"), 0)) %>% select(-quarter) %>%
+  summarise_each(funs = funs(mae =  mean(abs(.)))) %>%
+  melt(id = "decade") %>%
+  mutate(series = str_extract(variable, "[A-Za-z]*"),
+         model = str_extract(variable, "[0-9]{1}")) %>%
+  mutate(model = ifelse(model == "1", "Weighted", ifelse(model=="2", "Unweighted", "TVP")),
+         value = round(value, 2)) %>%
+  dcast(decade ~ series + model, value.var = "value") %>% pander::pander()
+
+out_errors%>% select(-quarter) %>%
+  summarise_each(funs = funs(mae =  mean(abs(.)))) %>%
+  melt() %>%
+  mutate(series = str_extract(variable, "[A-Za-z]*"),
+         model = str_extract(variable, "[0-9]{1}")) %>%
+  mutate(model = ifelse(model == "1", "Weighted", ifelse(model=="2", "Unweighted", "TVP")),
+         value = round(value, 2)) %>%
+  dcast("Total" ~ series + model, value.var = "value") %>% knitr::kable()
+  
+?summarise_each
 # Permanent components ----------------------------------------------------
 
 load("perm_components_tvp.RData")
@@ -189,17 +227,24 @@ tvp_perm<- perm_components_out %>% select(Date, variable, median)%>% cc %>% as.d
   rename(quarter = Date)
 names(tvp_perm)[-1] <- paste0(names(tvp_perm)[-1], "3")
 
-out_lr %>% left_join(dataset.q1) %>% left_join(tvp_perm)%>% melt(id = "quarter") %>%
+out_lr_chart <- out_lr %>% left_join(dataset.q1) %>% left_join(tvp_perm)%>% melt(id = "quarter") %>%
   mutate(est = str_extract(variable, "[0-9]"),
          series = str_extract(variable, "[A-Za-z]*"),
-         est = ifelse(is.na(est), "actual", est)) %>%
+         est = ifelse(is.na(est), "Actual", est),
+         est = ifelse(est=="1", "Weighted VAR", ifelse(est=="3", "TVP-VAR", est))) %>%
+  filter(est!="2") 
+
+save(list = c("out_lr_chart", "out_lr", "dataset.q1", "tvp_perm"), file = "out_lr_chart.RData")
+out_lr_chart %>%
   ggplot(aes(x = quarter, y = value, colour= est)) +
   geom_line() +
-  facet_grid(series~.)
+  facet_grid(series~.) +
+  ggthemes::theme_fivethirtyeight()
   
 out_mini <- out_lr %>% left_join(dataset.q1) %>% left_join(tvp_perm) %>%
-  select(r, CPI1, CPI3) %>% cc
-cor(out_mini)
+  select(r, CPI1, CPI3) %>% cc %>% 
+  rename(Analogy_weighted_core_inflation = CPI1,
+         Bayesian_learning_core_inflation = CPI3)
 
-summary(lm(r ~ CPI1 + CPI3 , data = out_mini))
+summary(lm(r ~ ., data = out_mini))
 
